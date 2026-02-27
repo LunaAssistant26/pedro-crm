@@ -1,0 +1,50 @@
+{
+  "partners": [
+    {
+      "id": "emerchantpay",
+      "name": "emerchantpay",
+      "type": "Card Acquirer",
+      "website": "https://www.emerchantpay.com/",
+      "contact": "Suzanne",
+      "status": "Active",
+      "commissionShare": "30%",
+      "settlementTimeframe": "T+2",
+      "settlementCurrencies": ["EUR", "GBP", "USD", "AUD", "CAD"],
+      "rollingReserve": "Flexible - depends on client",
+      "acceptedVerticals": ["EU Licensed Gambling", "FX Trading", "Adult"],
+      "acceptedRegions": ["EU"],
+      "keyStrengths": [
+        "5 active clients already processing",
+        "Strong in EU licensed Gambling, FX, Adult",
+        "Multiple settlement currencies",
+        "Fast T+2 settlement"
+      ],
+      "clients": [
+        {
+          "name": "LFA International Ltd.",
+          "description": "Description pending research"
+        },
+        {
+          "name": "Yellow Social Interactive Ltd.",
+          "description": "Description pending research"
+        },
+        {
+          "name": "B-two Operations Ltd.",
+          "description": "Description pending research"
+        },
+        {
+          "name": "Globex SARL",
+          "description": "Description pending research"
+        },
+        {
+          "name": "Play Spree Ltd.",
+          "description": "Description pending research"
+        }
+      ],
+      "notes": "First partner in CRM. Strong relationship with Suzanne. Processing 5 active clients.",
+      "lastUpdated": "2026-02-27",
+      "followUpDate": null,
+      "followUpNotes": null
+    }
+  ]
+}
