@@ -1,0 +1,24 @@
+{
+  "lastUpdated": "2026-03-01T14:18:29.630Z",
+  "businessIdeas": [
+    {
+      "id": "2026-03-02-ai-lead-scoring-for-psps",
+      "type": "business-idea",
+      "filename": "2026-03-02-ai-lead-scoring-for-psps.md",
+      "title": "AI-Powered Lead Scoring for Payment Providers",
+      "date": "2026-03-02",
+      "stage": "submitted",
+      "tags": "[\"AI\", \"B2B\", \"Payments\", \"SaaS\"]",
+      "estimatedMarket": "€50K-200K/month",
+      "effort": "Medium",
+      "submittedBy": "Researcher",
+      "content": "## Problem\nPayment service providers (PSPs) waste significant resources manually qualifying high-risk merchant leads (gambling, crypto, FX). Current process is inefficient and misses opportunities.\n\n## Solution\nAI-powered lead scoring platform that:\n- Scrapes public data to identify active high-risk merchants\n- Scores leads by transaction volume, growth trajectory, and payment pain signals\n- Provides PSPs with qualified, prioritized prospect lists\n\n## Market Validation\n- Pedro's existing network: 50+ PSPs actively seeking high-risk merchants\n- Target customers: Payment orchestrators, acquirers, alternative payment method providers\n- Pricing model: €2-5K/month per PSP + revenue share on closed deals\n\n## Competitive Landscape\n- Manual lead gen agencies (slow, expensive)\n- Generic sales intelligence tools (Clearbit, ZoomInfo) — not focused on high-risk verticals\n- No dedicated solution for payments industry\n\n## Next Steps\n1. Validate demand with 3-5 PSP contacts\n2. Build MVP scraper for gambling operators\n3. Test with Pedro's existing PSP network\n\n## Risks\n- Data scraping compliance (need legal review)\n- High-risk merchants may not want to be identified\n- PSPs may prefer existing relationships",
+      "createdAt": "2026-03-02"
+    }
+  ],
+  "dailyReports": [],
+  "stats": {
+    "totalIdeas": 1,
+    "totalReports": 0
+  }
+}
