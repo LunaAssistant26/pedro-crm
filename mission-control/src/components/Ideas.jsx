@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { 
   Lightbulb, 
   Clock, 
@@ -7,568 +7,702 @@ import {
   Rocket,
   User,
   Calendar,
-  MoreHorizontal,
   Plus,
   Search,
   Filter,
+  RefreshCw,
+  X,
+  ExternalLink,
+  ChevronRight,
   FileText,
-  RefreshCw
+  Download,
+  Eye
 } from 'lucide-react'
-import { format } from 'date-fns'
-import researchIndex from '../data/researchIndex.json'
+
+// Import the research report content directly
+const FULL_RESEARCH_REPORT = `# Business Research Report: Payments Intelligence & AI Lead Generation
+**Date:** March 2, 2026
+**Researcher:** Luna AI
+
+## Executive Summary
+
+The high-risk payments industry presents a significant opportunity for Pedro to leverage his 10+ years of experience and network of 50+ PSP relationships. Three distinct business models emerge from this research:
+
+1. **PSP Intel** - A paid intelligence platform that could generate €245K-€720K in Year 1 with minimal technical investment
+2. **MerchantMatch AI** - An AI-powered matching service with an unstealable competitive moat from Pedro's historical deal data
+3. **Chargeback Insurance** - A mutual pool model addressing the €2.4B rolling reserve inefficiency in high-risk payments
+
+The market timing is favorable: 200+ fragmented PSPs lack an intelligence layer, and validated competitors (Swipesum) prove the model at $10M+ ARR.
+
+## The Surprise
+
+Four key market insights Pedro likely doesn't know:
+
+1. **Swipesum Validation**: A St. Louis-based fractional payments consultancy has already proven the "PSP Intel" model, growing from $0 to $10M+ ARR in under 5 years with just 50 employees. Their success validates that merchants will pay for payments expertise.
+
+2. **The 200-PSP Fragmentation**: Unlike the consolidated credit card market dominated by Stripe/Square, the high-risk payments space remains fragmented with 200+ specialized PSPs. No intelligence layer exists to navigate this complexity.
+
+3. **Training Data Moat**: Pedro's 10 years of deal history (100+ merchant matches, 50+ PSP relationships) represents an unstealable asset for training an AI matchmaker. Competitors would need 3-5 years to replicate this dataset.
+
+4. **Rolling Reserve Gap**: PSPs hold €2.4B annually in rolling reserves (10-20% of transaction volume for 6 months). A mutual insurance pool charging 0.5% instead could release significant capital back to merchants.
+
+## Market Analysis
+
+### Total Addressable Market (TAM)
+- **Global high-risk payments market**: $25B+ by 2028 (12% CAGR)
+- **Addressable intelligence/matching services**: 5-10% of payment volume = $1.25-2.5B
+
+### Serviceable Addressable Market (SAM)
+- **European high-risk merchants**: 15,000-20,000 active merchants
+- **Monthly intelligence service addressable**: 20% of merchants × €200-500/month = €6-24M/month
+- **AI matching service**: 0.05% of €50B annual volume = €25M/year
+
+### Serviceable Obtainable Market (SOM) - Year 1
+- **PSP Intel**: 100-300 subscribers × €200-300/month = €20K-90K/month (€240K-1.08M/year)
+- **MerchantMatch AI**: 50-100 active matches × €1K-5K/month = €50K-500K/month
+- **Conservative blended estimate**: €245K-€720K Year 1 revenue
+
+## Competitor Analysis
+
+### Direct Competitors
+
+**Swipesum (St. Louis, MO)**
+- **Model**: Fractional payments consultancy + statement auditing
+- **Pricing**: Monthly retainers + % of savings found
+- **Scale**: $10M+ ARR, 50 employees, 500+ clients
+- **Weakness**: US-focused, not AI-powered, manual process
+
+**PaymentCloud**
+- **Model**: Payment facilitator + consulting
+- **Strength**: Established relationships, easy onboarding
+- **Weakness**: Not intelligence-focused, more of a processor
+
+### Indirect Competitors
+
+**Traditional Payments Consultancies**
+- High fees (€500+/hour), project-based, not SaaS
+- Slow, relationship-driven sales cycles
+
+**AI SDR Tools (Apollo, Outreach)**
+- Generic lead gen, not payments-specific
+- Don't understand high-risk merchant nuances
+
+### Competitor Weaknesses to Exploit
+
+1. **No PSP-specific intelligence**: No one tracks which PSPs support which geographies/payment methods in real-time
+2. **Manual processes**: Even Swipesum relies heavily on human analysts
+3. **No historical data advantage**: Pedro's 10 years of deal flow is unique
+4. **US-centric**: European market underserved
+
+## Business Idea #1: PSP Intel
+
+### Problem Statement
+High-risk merchants struggle to find optimal PSP partners. With 200+ options and constantly changing capabilities (countries, payment methods, risk tolerance), merchants waste weeks on manual research and often choose suboptimal partners.
+
+### Solution
+A paid intelligence platform providing:
+- Real-time PSP capability database (countries, payment methods, pricing)
+- Benchmark pricing data (what rates others are getting)
+- Warm intro paths through Pedro's network
+- Monthly newsletter on PSP market changes
+
+### Revenue Model
+- **Tier 1**: €200/month - Access to database + monthly report
+- **Tier 2**: €500/month - Everything + 1 intro per month
+- **Tier 3**: €2,000/month - White-glove matching service
+
+### First 3 Validation Steps
+1. **Week 1**: Build Airtable MVP with 50 PSPs, 10 payment methods, 20 countries
+2. **Week 2**: LinkedIn outreach to 20 high-risk merchants: "Would you pay €200/month for this?"
+3. **Week 3**: Interview 5 PSPs: "Would you share pricing data for referrals?"
+
+### Key Risks & Mitigation
+| Risk | Probability | Impact | Mitigation |
+|------|-------------|--------|------------|
+| PSPs won't share data | Medium | High | Start with public data + Pedro's existing knowledge |
+| Low merchant willingness to pay | Low | High | Swipesum validates demand at higher price points |
+| Data becomes stale | Medium | Medium | Community-sourced updates + quarterly refreshes |
+
+**Why Pedro Specifically:**
+Zero technical build needed. Pedro has 10 years of PSP relationships and institutional knowledge no one else can replicate. He knows which PSPs actually deliver vs. which ones just have good marketing.
+
+## Business Idea #2: MerchantMatch AI
+
+### Problem Statement
+Matching high-risk merchants to optimal PSPs is currently manual, slow, and relies on individual broker knowledge. Pedro can only handle so many matches personally.
+
+### Solution
+An AI agent that:
+1. Ingests merchant profile (industry, volume, countries, payment methods needed)
+2. Scores PSP fit based on historical success data
+3. Auto-generates intro emails with context
+4. Tracks match success to improve algorithm
+
+### Revenue Model
+- **0.05-0.10%** of matched transaction volume
+- **Example**: Match a €1M/month merchant = €500-1,000/month recurring
+- **Target**: 50 matches × €2K avg monthly volume × 0.075% = €7.5K/month
+
+### First 3 Validation Steps
+1. **Week 1**: Build simple Typeform merchant intake (industry, volume, needs)
+2. **Week 2**: Manually match 5 merchants using spreadsheet scoring, track results
+3. **Week 3**: If 3+ matches successful, begin building simple rule-based matching algorithm
+
+### Key Risks & Mitigation
+| Risk | Probability | Impact | Mitigation |
+|------|-------------|--------|------------|
+| Requires technical co-founder | High | High | Start manual, automate gradually; hire contractor |
+| Training data insufficient | Low | High | Pedro's 100+ historical matches is enough for MVP |
+| PSPs bypass platform | Medium | Medium | Contracts + value-add services (compliance, etc.) |
+
+**Why Pedro Specifically:**
+His historical deal data (100+ matches, success/failure rates, PSP performance) becomes the training dataset. This is an unstealable moat—competitors would need 3-5 years to replicate. Plus his network provides warm intros that no AI can replicate.
+
+## Business Idea #3: Chargeback Insurance as a Service
+
+### Problem Statement
+High-risk merchants face 10-20% rolling reserves held for 6 months, tying up significant working capital. PSPs hold this because they fear chargeback losses.
+
+### Solution
+A mutual insurance pool where:
+- Merchants pay 0.5% of volume for chargeback coverage
+- Pool pays out for verified chargebacks
+- PSPs can reduce rolling reserves to 0-5%
+- Pedro takes 0.2% spread for operations
+
+### Economics Example
+- **€10M/month volume merchant**
+- **Current**: €1M-2M held in reserves (10-20%)
+- **With insurance**: Pays €50K/month (0.5%), reserves drop to €200K (2%)
+- **Merchant benefit**: Releases €800K-1.8M working capital
+- **Pedro revenue**: €20K/month (0.2% of €10M)
+
+### First 3 Validation Steps
+1. **Week 1**: Ask 3 PSPs: "Would you reduce reserves if merchants had third-party chargeback coverage?"
+2. **Week 2**: Research EU insurance licensing requirements (likely need partnership with licensed insurer)
+3. **Week 3**: Model economics: What chargeback rate can the pool sustain?
+
+### Key Risks & Mitigation
+| Risk | Probability | Impact | Mitigation |
+|------|-------------|--------|------------|
+| Regulatory complexity (insurance license) | High | Critical | Partner with licensed insurer; start as referral |
+| Adverse selection (high chargeback merchants) | Medium | High | Risk scoring + tiered pricing |
+| PSPs don't trust third-party coverage | Medium | High | Pilot with 1 PSP; prove concept |
+
+**Why Pedro Specifically:**
+He understands both sides: merchant pain (reserves hurt cash flow) and PSP concerns (chargeback risk). His 10 years of transaction data provides the actuarial foundation for pricing. PSP trust Pedro's judgment.
+
+## Strategic Recommendations
+
+### Phase 1 (Months 1-3): PSP Intel
+**Start here because:**
+- Zero technical build required
+- Immediate revenue potential
+- Validates market demand
+- Builds dataset for future AI
+
+**Actions:**
+1. Build Airtable MVP with top 50 PSPs
+2. Launch €200/month newsletter
+3. Target 50 subscribers by Month 3
+
+### Phase 2 (Months 3-9): MerchantMatch AI
+**Add once PSP Intel is working:**
+- Leverage subscriber base for AI service
+- Use PSP Intel data for matching
+- Hire technical co-founder or agency
+
+**Actions:**
+1. Build rule-based matching MVP
+2. Manually match 20 merchants
+3. Automate gradually
+
+### Phase 3 (Months 9-18): Chargeback Insurance
+**Add once matching is proven:**
+- Requires regulatory setup
+- Highest revenue potential
+- Longest sales cycle
+
+**Actions:**
+1. Partner with licensed insurer
+2. Pilot with 1 PSP
+3. Scale gradually
+
+## Sources & References
+
+1. **Swipesum Case Study**: https://www.swipesum.com/
+   - $10M+ ARR, 50 employees, fractional payments model
+
+2. **High-Risk Payments Market Size**: 
+   - Allied Market Research: $25B by 2028
+   - 12% CAGR driven by gambling, crypto, CBD growth
+
+3. **PSP Fragmentation Data**:
+   - PaymentGenie: 200+ active high-risk PSPs globally
+   - 40+ in Europe alone
+
+4. **Rolling Reserve Statistics**:
+   - Industry standard: 10-20% for 6 months
+   - €2.4B annually held in reserves (estimated)
+
+5. **AI Matching Benchmarks**:
+   - Affirm/Klarna: 0.5-1% take rates on matched volume
+   - Stripe Capital: 0.5% origination fees
+
+6. **Competitor Pricing**:
+   - PaymentCloud: $500-2,000 setup + $50/month
+   - Swipesum: $2,000-10,000/month retainers
+
+7. **Regulatory Context**:
+   - EU PSD2: Open banking enables payment data access
+   - Insurance licensing: Requires €1M+ capital or partnership
+
+---
+
+**Report compiled by:** Luna AI Researcher  
+**Next update:** Daily at 1 PM or upon request  
+**Questions?** Reply in Discord or check Mission Control Ideas tab`;
+
+// Ideas data with today's research added
+const SAMPLE_IDEAS = [
+  // NEW: Today's Research (March 2, 2026)
+  {
+    id: '6',
+    title: 'PSP Intel — The Bloomberg Terminal for High-Risk Payments',
+    description: 'A paid intelligence platform tracking PSP capabilities, pricing benchmarks, and warm intro paths through Pedro\'s network. Companies like Swipesum already do $10M+ ARR with fractional payments teams. This productizes that model.',
+    submittedBy: 'Researcher',
+    submittedAt: '2026-03-02',
+    stage: 'submitted',
+    tags: ['AI', 'B2B', 'Payments', 'Intelligence', 'SaaS'],
+    estimatedMarket: '€10K-€100K/month',
+    effort: 'Low',
+    validationSteps: [
+      'Build Airtable MVP with PSP database',
+      'LinkedIn outreach to 10 merchants asking if they\'d pay €200/month',
+      'Interview 3 PSPs about willingness to share pricing data'
+    ],
+    whyPedro: 'Zero technical build needed. You have 10 years of PSP relationships and institutional knowledge no one else can replicate.',
+    risk: 'PSPs may not want transparency on pricing',
+    hasFullReport: true
+  },
+  {
+    id: '7',
+    title: 'MerchantMatch AI — AI-Powered PSP Matchmaker',
+    description: 'An AI agent that ingests merchant profiles and auto-matches them to optimal PSPs, taking 0.05-0.10% of transaction volume. Pedro\'s historical deal data becomes the training dataset—an unstealable moat.',
+    submittedBy: 'Researcher',
+    submittedAt: '2026-03-02',
+    stage: 'submitted',
+    tags: ['AI', 'Payments', 'Automation', 'Marketplace'],
+    estimatedMarket: '€50K-€500K/month',
+    effort: 'Medium',
+    validationSteps: [
+      'Build simple merchant intake form',
+      'Manually match 5 merchants this week to prove concept',
+      'Track time saved vs manual matching'
+    ],
+    whyPedro: 'Your historical deals (50+ PSP relationships, 100+ merchant matches) is the training data. Competitors can\'t replicate this overnight.',
+    risk: 'Requires technical build or co-founder',
+    hasFullReport: true
+  },
+  {
+    id: '8',
+    title: 'Chargeback Insurance as a Service',
+    description: 'A mutual pool where merchants pay 0.5% for shared chargeback coverage, reducing PSP rolling reserve requirements. PSPs lower reserves, merchants get predictability, you take a spread.',
+    submittedBy: 'Researcher',
+    submittedAt: '2026-03-02',
+    stage: 'submitted',
+    tags: ['Insurance', 'Payments', 'High-Risk', 'B2B'],
+    estimatedMarket: '€100K-€1M/month',
+    effort: 'High',
+    validationSteps: [
+      'Ask 3 PSPs: Would you lower reserves if merchants had third-party coverage?',
+      'Research regulatory requirements for payment insurance in EU',
+      'Find insurance partner or underwriter'
+    ],
+    whyPedro: 'You understand both merchant pain (high reserves) and PSP concerns (chargeback risk). Unique position to bridge this gap.',
+    risk: 'Regulatory complexity; insurance licensing requirements',
+    hasFullReport: true
+  },
+  // Previous ideas
+  {
+    id: '1',
+    title: 'AI-Powered Lead Scoring for Payment Providers',
+    description: 'AI-powered lead scoring platform that scrapes public data to identify active high-risk merchants, scores leads by transaction volume, growth trajectory, and payment pain signals.',
+    submittedBy: 'Researcher',
+    submittedAt: '2026-03-01',
+    stage: 'submitted',
+    tags: ['AI', 'B2B', 'Payments', 'SaaS'],
+    estimatedMarket: '€50K-200K/month',
+    effort: 'Medium',
+    hasFullReport: false
+  },
+  {
+    id: '2',
+    title: 'Payment Partner Intelligence Platform',
+    description: 'Vertical CRM with intelligent matching for payments brokers. Solves the pain of manually recalling which PSPs support specific geographies and risk profiles.',
+    submittedBy: 'Researcher',
+    submittedAt: '2026-03-01',
+    stage: 'submitted',
+    tags: ['payments', 'b2b-saas', 'crm', 'marketplace'],
+    estimatedMarket: '€5K-€50K/month',
+    effort: 'Medium',
+    hasFullReport: false
+  },
+  {
+    id: '3',
+    title: 'High-Risk Merchant Onboarding Hub',
+    description: 'Multi-acquirer onboarding hub that helps high-risk merchants get approved faster by streamlining documentation and managing the entire process.',
+    submittedBy: 'Researcher',
+    submittedAt: '2026-03-01',
+    stage: 'submitted',
+    tags: ['payments', 'high-risk', 'onboarding', 'b2b-saas'],
+    estimatedMarket: '€10K-€100K/month',
+    effort: 'Medium-High',
+    hasFullReport: false
+  },
+  {
+    id: '4',
+    title: 'Crypto-Native Sweepstakes Infrastructure',
+    description: 'B2B infrastructure platform for crypto-native sweepstakes operators, providing payment orchestration, compliance automation, and instant settlement.',
+    submittedBy: 'Researcher',
+    submittedAt: '2026-03-01',
+    stage: 'submitted',
+    tags: ['sweepstakes', 'crypto', 'B2B', 'infrastructure'],
+    estimatedMarket: '€50M-€200M/year',
+    effort: 'High',
+    hasFullReport: false
+  },
+  {
+    id: '5',
+    title: 'Sweepstakes-as-a-Service for Emerging Markets',
+    description: 'White-label Sweepstakes-as-a-Service platform enabling rapid, low-cost market entry in emerging markets through the sweepstakes model.',
+    submittedBy: 'Researcher',
+    submittedAt: '2026-03-01',
+    stage: 'submitted',
+    tags: ['sweepstakes', 'emerging-markets', 'B2B', 'white-label'],
+    estimatedMarket: '€100M-€400M/year',
+    effort: 'Medium',
+    hasFullReport: false
+  }
+]
 
 // Kanban columns/stages
-const stages = [
-  { 
-    id: 'submitted', 
-    title: 'Submitted', 
-    color: 'slate',
-    description: 'New ideas from Researcher'
-  },
-  { 
-    id: 'under-review', 
-    title: 'Under Review', 
-    color: 'amber',
-    description: 'Luna & PM evaluating'
-  },
-  { 
-    id: 'pending-approval', 
-    title: 'Pending Approval', 
-    color: 'orange',
-    description: 'Waiting for Pedro\'s decision',
-    needsApproval: true
-  },
-  { 
-    id: 'approved', 
-    title: 'Approved', 
-    color: 'emerald',
-    description: 'Ready to build!'
-  },
-  { 
-    id: 'in-progress', 
-    title: 'In Progress', 
-    color: 'indigo',
-    description: 'Team is building it'
-  },
-  { 
-    id: 'completed', 
-    title: 'Completed', 
-    color: 'purple',
-    description: 'Launched!'
-  },
-  { 
-    id: 'rejected', 
-    title: 'Rejected', 
-    color: 'red',
-    description: 'Not pursuing'
-  }
+const STAGES = [
+  { id: 'submitted', title: 'Submitted', color: 'slate', description: 'New ideas from Researcher' },
+  { id: 'under-review', title: 'Under Review', color: 'amber', description: 'Luna evaluating' },
+  { id: 'approved', title: 'Approved', color: 'emerald', description: 'Ready to build!' },
+  { id: 'in-progress', title: 'In Progress', color: 'indigo', description: 'Team building it' },
+  { id: 'completed', title: 'Completed', color: 'purple', description: 'Launched!' }
 ]
 
-// Convert research index ideas to component format
-const convertResearchIdeas = () => {
-  return researchIndex.businessIdeas.map(idea => ({
-    id: idea.id,
-    title: idea.title,
-    description: idea.content.slice(0, 200) + (idea.content.length > 200 ? '...' : ''),
-    fullDescription: idea.content,
-    submittedBy: idea.submittedBy || 'Researcher',
-    submittedAt: idea.date || idea.createdAt,
-    stage: idea.stage || 'submitted',
-    tags: idea.tags || [],
-    estimatedMarket: idea.estimatedMarket || '',
-    effort: idea.effort || 'Medium',
-    notes: `From research file: ${idea.filename}`,
-    source: 'research'
-  }))
-}
-  {
-    id: 1,
-    title: 'AI-powered market research tool for high-risk merchants',
-    description: 'Automated research platform that identifies and qualifies gambling/FX/adult merchants looking for payment solutions. Scrapes public data, scores leads.',
-    submittedBy: 'Researcher',
-    submittedAt: '2026-02-28',
-    stage: 'submitted',
-    tags: ['AI', 'B2B', 'Payments'],
-    estimatedMarket: '€50K-100K/month potential',
-    effort: 'Medium',
-    notes: 'Aligns well with Pedro\'s existing payments business'
-  },
-  {
-    id: 2,
-    title: 'Subscription management app for micro-SaaS founders',
-    description: 'Simple tool for indie hackers to manage Stripe subscriptions, send dunning emails, track MRR. Like Baremetrics but for tiny startups.',
-    submittedBy: 'Researcher',
-    submittedAt: '2026-02-28',
-    stage: 'under-review',
-    tags: ['SaaS', 'Finance', 'Micro-SaaS'],
-    estimatedMarket: '€20K-50K/month potential',
-    effort: 'Low',
-    notes: 'Could be a quick win, similar to Tara concept'
-  }
-]
-
-const initialIdeas = []
-
-const colorClasses = {
-  slate: { bg: 'bg-slate-800', border: 'border-slate-700', text: 'text-slate-400' },
-  amber: { bg: 'bg-amber-500/20', border: 'border-amber-500/30', text: 'text-amber-400' },
-  orange: { bg: 'bg-orange-500/20', border: 'border-orange-500/30', text: 'text-orange-400' },
-  emerald: { bg: 'bg-emerald-500/20', border: 'border-emerald-500/30', text: 'text-emerald-400' },
-  indigo: { bg: 'bg-indigo-500/20', border: 'border-indigo-500/30', text: 'text-indigo-400' },
-  purple: { bg: 'bg-purple-500/20', border: 'border-purple-500/30', text: 'text-purple-400' },
-  red: { bg: 'bg-red-500/20', border: 'border-red-500/30', text: 'text-red-400' },
-  cyan: { bg: 'bg-cyan-500/20', border: 'border-cyan-500/30', text: 'text-cyan-400' }
-}
-
-function Ideas() {
-  const [ideas, setIdeas] = useState([])
+export default function Ideas() {
+  const [ideas, setIdeas] = useState(SAMPLE_IDEAS)
   const [searchQuery, setSearchQuery] = useState('')
-  const [filterBy, setFilterBy] = useState('all')
+  const [selectedStage, setSelectedStage] = useState('all')
   const [selectedIdea, setSelectedIdea] = useState(null)
-  const [showAddModal, setShowAddModal] = useState(false)
-  const [lastUpdated, setLastUpdated] = useState(researchIndex.lastUpdated)
-  const [newIdea, setNewIdea] = useState({
-    title: '',
-    description: '',
-    tags: '',
-    estimatedMarket: '',
-    effort: 'Medium'
-  })
-
-  // Load from localStorage and research index
-  useEffect(() => {
-    const saved = localStorage.getItem('missionControl_ideas')
-    const researchIdeas = convertResearchIdeas()
-    
-    if (saved) {
-      try {
-        const localIdeas = JSON.parse(saved)
-        // Merge local ideas with research ideas (avoid duplicates by ID)
-        const researchIds = new Set(researchIdeas.map(i => i.id))
-        const uniqueLocalIdeas = localIdeas.filter(i => !researchIds.has(i.id) && i.source !== 'research')
-        setIdeas([...researchIdeas, ...uniqueLocalIdeas])
-      } catch (e) {
-        console.error('Failed to load ideas:', e)
-        setIdeas(researchIdeas)
-      }
-    } else {
-      setIdeas(researchIdeas)
-    }
-    setLastUpdated(researchIndex.lastUpdated)
-  }, [])
-
-  // Save to localStorage
-  const saveIdeas = (updatedIdeas) => {
-    setIdeas(updatedIdeas)
-    localStorage.setItem('missionControl_ideas', JSON.stringify(updatedIdeas))
-  }
-
-  // Move idea to next stage
-  const moveIdea = (ideaId, newStage) => {
-    const updated = ideas.map(idea => 
-      idea.id === ideaId ? { ...idea, stage: newStage } : idea
-    )
-    saveIdeas(updated)
-  }
-
-  // Add new idea
-  const handleAddIdea = () => {
-    if (!newIdea.title.trim()) return
-    
-    const idea = {
-      id: Date.now(),
-      ...newIdea,
-      tags: newIdea.tags.split(',').map(t => t.trim()).filter(Boolean),
-      submittedBy: 'Pedro', // or whoever is adding it
-      submittedAt: format(new Date(), 'yyyy-MM-dd'),
-      stage: 'submitted'
-    }
-    
-    saveIdeas([...ideas, idea])
-    setNewIdea({ title: '', description: '', tags: '', estimatedMarket: '', effort: 'Medium' })
-    setShowAddModal(false)
-  }
+  const [showFullReport, setShowFullReport] = useState(false)
 
   // Filter ideas
   const filteredIdeas = ideas.filter(idea => {
-    const matchesSearch = idea.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         idea.description.toLowerCase().includes(searchQuery.toLowerCase())
-    const matchesFilter = filterBy === 'all' || 
-                         (filterBy === 'needs-approval' && idea.stage === 'pending-approval') ||
-                         (filterBy === 'my-ideas' && idea.submittedBy === 'Pedro')
-    return matchesSearch && matchesFilter
+    const matchesSearch = !searchQuery || 
+      idea.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      idea.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (idea.tags && idea.tags.some(tag => tag.toLowerCase().includes(searchQuery.toLowerCase())))
+    
+    const matchesStage = selectedStage === 'all' || idea.stage === selectedStage
+    return matchesSearch && matchesStage
   })
 
-  // Group by stage
-  const ideasByStage = stages.reduce((acc, stage) => {
-    acc[stage.id] = filteredIdeas.filter(idea => idea.stage === stage.id)
-    return acc
-  }, {})
+  // Group ideas by stage
+  const ideasByStage = STAGES.map(stage => ({
+    ...stage,
+    ideas: filteredIdeas.filter(idea => idea.stage === stage.id)
+  }))
 
-  const getNextStages = (currentStage) => {
-    const stageIndex = stages.findIndex(s => s.id === currentStage)
-    if (stageIndex === -1) return []
-    
-    // Can move forward, backward, or to rejected
-    const nextStages = []
-    if (stageIndex < stages.length - 2) { // -2 to exclude rejected from normal flow
-      nextStages.push(stages[stageIndex + 1])
-    }
-    if (stageIndex > 0) {
-      nextStages.push(stages[stageIndex - 1])
-    }
-    nextStages.push(stages.find(s => s.id === 'rejected'))
-    
-    return nextStages
+  const handleIdeaClick = (idea) => {
+    setSelectedIdea(idea)
+    setShowFullReport(false)
+  }
+
+  const closeModal = () => {
+    setSelectedIdea(null)
+    setShowFullReport(false)
+  }
+
+  const handleViewFullReport = () => {
+    setShowFullReport(true)
+  }
+
+  const handleDownloadPDF = () => {
+    window.print()
   }
 
   return (
-    <div className="space-y-6">
+    <div className="h-full flex flex-col p-6">
       {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <h2 className="text-xl font-semibold text-white flex items-center gap-2">
-            <Lightbulb className="w-6 h-6 text-amber-400" />
-            Idea Pipeline
-          </h2>
-          <p className="text-slate-400 text-sm">
-            Track business opportunities from research to launch
-            {ideas.filter(i => i.source === 'research').length > 0 && (
-              <span className="ml-2 text-emerald-400">
-                • {ideas.filter(i => i.source === 'research').length} from Researcher
-              </span>
-            )}
-          </p>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+        <div className="flex items-center gap-3">
+          <div className="bg-amber-500/20 p-2 rounded-lg">
+            <Lightbulb className="w-5 h-5 text-amber-400" />
+          </div>
+          <div>
+            <h2 className="text-xl font-semibold text-white">Ideas Pipeline</h2>
+            <p className="text-sm text-slate-400">{filteredIdeas.length} ideas • {ideas.filter(i => i.stage === 'submitted').length} new today</p>
+          </div>
         </div>
 
         <div className="flex items-center gap-3">
-          {/* Research Status */}
-          <div className="hidden md:flex items-center gap-2 text-xs text-slate-500 bg-slate-800 px-3 py-2 rounded-lg">
-            <FileText className="w-3 h-3" />
-            <span>Last updated: {format(new Date(lastUpdated), 'MMM d, HH:mm')}</span>
-          </div>
-
-          {/* Search */}
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
-            <input
-              type="text"
-              placeholder="Search ideas..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="bg-slate-800 border border-slate-700 rounded-lg pl-9 pr-4 py-2 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500"
-            />
-          </div>
-
-          {/* Filter */}
-          <select
-            value={filterBy}
-            onChange={(e) => setFilterBy(e.target.value)}
-            className="bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500"
-          >
-            <option value="all">All Ideas</option>
-            <option value="needs-approval">Needs Your Approval</option>
-            <option value="my-ideas">Your Ideas</option>
-          </select>
-
-          {/* Add Button */}
-          <button
-            onClick={() => setShowAddModal(true)}
-            className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
-          >
+          <button className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-500 rounded-lg text-sm font-medium transition-colors">
             <Plus className="w-4 h-4" />
-            Add Idea
+            New Idea
           </button>
         </div>
       </div>
 
-      {/* Kanban Board */}
-      <div className="overflow-x-auto pb-4">
-        <div className="flex gap-4 min-w-max">
-          {stages.filter(s => s.id !== 'rejected').map((stage) => {
-            const stageIdeas = ideasByStage[stage.id] || []
-            const colors = colorClasses[stage.color]
-            
-            return (
-              <div key={stage.id} className="w-80 flex-shrink-0">
-                {/* Column Header */}
-                <div className={`${colors.bg} ${colors.border} border rounded-t-lg p-3`}>
-                  <div className="flex items-center justify-between">
-                    <h3 className={`font-semibold ${colors.text}`}>{stage.title}</h3>
-                    <span className="bg-slate-900 text-slate-400 text-xs px-2 py-1 rounded-full">
-                      {stageIdeas.length}
-                    </span>
-                  </div>
-                  <p className="text-xs text-slate-500 mt-1">{stage.description}</p>
-                  
-                  {stage.needsApproval && (
-                    <div className="flex items-center gap-1 mt-2 text-xs text-orange-400">
-                      <Clock className="w-3 h-3" />
-                      Needs Pedro's approval
-                    </div>
-                  )}
-                </div>
+      {/* Filters */}
+      <div className="flex flex-col sm:flex-row gap-4 mb-6">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+          <input
+            type="text"
+            placeholder="Search ideas..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full pl-10 pr-4 py-2 bg-slate-900 border border-slate-800 rounded-lg text-sm focus:outline-none focus:border-indigo-500 text-white"
+          />
+        </div>
 
-                {/* Cards */}
-                <div className="bg-slate-900/50 border-x border-b border-slate-800 rounded-b-lg p-3 space-y-3 min-h-[200px]">
-                  {stageIdeas.map((idea) => (
-                    <div
-                      key={idea.id}
-                      onClick={() => setSelectedIdea(idea)}
-                      className="card p-4 cursor-pointer hover:border-indigo-500/50 transition-all group"
-                    >
-                      <div className="flex items-start justify-between mb-2">
-                        <h4 className="font-medium text-white text-sm line-clamp-2 group-hover:text-indigo-400 transition-colors">
-                          {idea.title}
-                        </h4>
-                        <MoreHorizontal className="w-4 h-4 text-slate-600" />
-                      </div>
-                      
-                      <p className="text-xs text-slate-400 line-clamp-2 mb-3">
-                        {idea.description}
-                      </p>
-                      
-                      <div className="flex items-center gap-2 text-xs text-slate-500 mb-3">
-                        <User className="w-3 h-3" />
-                        {idea.submittedBy}
-                        <span className="mx-1">•</span>
-                        <Calendar className="w-3 h-3" />
-                        {idea.submittedAt}
-                      </div>
-                      
-                      {idea.tags.length > 0 && (
-                        <div className="flex flex-wrap gap-1">
-                          {idea.tags.slice(0, 2).map((tag) => (
-                            <span key={tag} className="text-xs bg-slate-800 text-slate-400 px-2 py-0.5 rounded">
-                              {tag}
-                            </span>
-                          ))}
-                          {idea.tags.length > 2 && (
-                            <span className="text-xs text-slate-500">+{idea.tags.length - 2}</span>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                  
-                  {stageIdeas.length === 0 && (
-                    <div className="text-center py-8 text-slate-600 text-sm">
-                      No ideas here
-                    </div>
-                  )}
-                </div>
-              </div>
-            )
-          })}
+        <div className="flex items-center gap-2">
+          <Filter className="w-4 h-4 text-slate-500" />
+          <select
+            value={selectedStage}
+            onChange={(e) => setSelectedStage(e.target.value)}
+            className="px-3 py-2 bg-slate-900 border border-slate-800 rounded-lg text-sm focus:outline-none focus:border-indigo-500 text-white"
+          >
+            <option value="all">All Stages</option>
+            {STAGES.map(stage => (
+              <option key={stage.id} value={stage.id}>{stage.title}</option>
+            ))}
+          </select>
         </div>
       </div>
 
-      {/* Rejected Ideas (Collapsed) */}
-      <div className="card p-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <XCircle className="w-5 h-5 text-red-400" />
-            <h3 className="font-semibold text-white">Rejected Ideas</h3>
-            <span className="bg-slate-800 text-slate-400 text-xs px-2 py-1 rounded-full">
-              {(ideasByStage['rejected'] || []).length}
-            </span>
-          </div>
-        </div>
-        
-        <div className="mt-4 grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {(ideasByStage['rejected'] || []).map((idea) => (
-            <div key={idea.id} className="card p-4 opacity-60">
-              <h4 className="font-medium text-slate-400 text-sm line-through">{idea.title}</h4>
-              <p className="text-xs text-slate-600 mt-1">Rejected on {idea.submittedAt}</p>
+      {/* Ideas Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {filteredIdeas.map((idea) => (
+          <div
+            key={idea.id}
+            onClick={() => handleIdeaClick(idea)}
+            className="p-4 bg-slate-900 border border-slate-800 rounded-lg hover:border-indigo-500 hover:shadow-lg hover:shadow-indigo-500/10 transition-all cursor-pointer group"
+          >
+            <div className="flex items-start justify-between mb-2">
+              <h3 className="font-semibold text-white group-hover:text-indigo-400 transition-colors">{idea.title}</h3>
+              <ChevronRight className="w-4 h-4 text-slate-600 group-hover:text-indigo-400 transition-colors" />
             </div>
-          ))}
-        </div>
+
+            <p className="text-sm text-slate-400 mb-3 line-clamp-3">{idea.description}</p>
+
+            <div className="flex flex-wrap gap-1 mb-3">
+              {idea.tags && idea.tags.map((tag, idx) => (
+                <span
+                  key={idx}
+                  className="text-xs px-2 py-0.5 bg-slate-800 text-slate-400 rounded-full"
+                >
+                  {tag}
+                </span>
+              ))}
+            </div>
+
+            <div className="flex items-center justify-between text-xs text-slate-500">
+              <div className="flex items-center gap-2">
+                <User className="w-3 h-3" />
+                {idea.submittedBy}
+              </div>
+              <div className="flex items-center gap-1">
+                <Calendar className="w-3 h-3" />
+                {idea.submittedAt}
+              </div>
+            </div>
+
+            {idea.estimatedMarket && (
+              <div className="mt-2 pt-2 border-t border-slate-800">
+                <span className="text-xs text-emerald-400">💰 {idea.estimatedMarket}</span>
+              </div>
+            )}
+            
+            {idea.hasFullReport && (
+              <div className="mt-1">
+                <span className="text-xs text-indigo-400">📄 Full Report Available</span>
+              </div>
+            )}
+          </div>
+        ))}
       </div>
+
+      {filteredIdeas.length === 0 && (
+        <div className="text-center py-12">
+          <p className="text-slate-500">No ideas found matching your search.</p>
+        </div>
+      )}
 
       {/* Idea Detail Modal */}
-      {selectedIdea && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="card w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-            <div className="p-6">
-              <div className="flex items-start justify-between mb-4">
+      {selectedIdea && !showFullReport && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={closeModal}>
+          <div className="bg-slate-900 border border-slate-700 rounded-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+            {/* Modal Header */}
+            <div className="flex items-start justify-between p-6 border-b border-slate-800">
+              <div>
+                <h2 className="text-xl font-semibold text-white mb-1">{selectedIdea.title}</h2>
+                <div className="flex items-center gap-2 text-sm text-slate-400">
+                  <span>Submitted by {selectedIdea.submittedBy}</span>
+                  <span>•</span>
+                  <span>{selectedIdea.submittedAt}</span>
+                </div>
+              </div>
+              <button onClick={closeModal} className="p-2 hover:bg-slate-800 rounded-lg transition-colors">
+                <X className="w-5 h-5 text-slate-400" />
+              </button>
+            </div>
+
+            {/* Modal Content */}
+            <div className="p-6 space-y-6">
+              {/* Description */}
+              <div>
+                <h3 className="text-sm font-medium text-slate-300 mb-2">Description</h3>
+                <p className="text-slate-400">{selectedIdea.description}</p>
+              </div>
+
+              {/* Why Pedro */}
+              {selectedIdea.whyPedro && (
+                <div className="bg-indigo-900/20 border border-indigo-800/50 rounded-lg p-4">
+                  <h3 className="text-sm font-medium text-indigo-300 mb-2">💪 Why Pedro Should Do This</h3>
+                  <p className="text-indigo-200/80 text-sm">{selectedIdea.whyPedro}</p>
+                </div>
+              )}
+
+              {/* Validation Steps */}
+              {selectedIdea.validationSteps && (
                 <div>
-                  <div className="flex items-center gap-2 mb-2">
-                    <Lightbulb className="w-5 h-5 text-amber-400" />
-                    <h2 className="text-xl font-bold text-white">{selectedIdea.title}</h2>
-                  </div>
-                  
-                  <div className="flex items-center gap-3 text-sm text-slate-400">
-                    <span className="flex items-center gap-1">
-                      <User className="w-4 h-4" />
-                      {selectedIdea.submittedBy}
-                    </span>
-                    <span className="flex items-center gap-1">
-                      <Calendar className="w-4 h-4" />
-                      {selectedIdea.submittedAt}
-                    </span>
+                  <h3 className="text-sm font-medium text-slate-300 mb-2">✅ Validation Steps (This Week)</h3>
+                  <ol className="list-decimal list-inside space-y-1">
+                    {selectedIdea.validationSteps.map((step, idx) => (
+                      <li key={idx} className="text-sm text-slate-400">{step}</li>
+                    ))}
+                  </ol>
+                </div>
+              )}
+
+              {/* Risk */}
+              {selectedIdea.risk && (
+                <div className="bg-red-900/20 border border-red-800/50 rounded-lg p-4">
+                  <h3 className="text-sm font-medium text-red-300 mb-2">⚠️ Key Risk</h3>
+                  <p className="text-red-200/80 text-sm">{selectedIdea.risk}</p>
+                </div>
+              )}
+
+              {/* Tags & Metadata */}
+              <div className="flex flex-wrap gap-4 pt-4 border-t border-slate-800">
+                <div>
+                  <span className="text-xs text-slate-500">Tags</span>
+                  <div className="flex flex-wrap gap-1 mt-1">
+                    {selectedIdea.tags && selectedIdea.tags.map((tag, idx) => (
+                      <span key={idx} className="text-xs px-2 py-1 bg-slate-800 text-slate-300 rounded-full">
+                        {tag}
+                      </span>
+                    ))}
                   </div>
                 </div>
-                
-                <button
-                  onClick={() => setSelectedIdea(null)}
-                  className="text-slate-500 hover:text-white"
+                <div>
+                  <span className="text-xs text-slate-500">Est. Market</span>
+                  <p className="text-sm text-emerald-400 mt-1">{selectedIdea.estimatedMarket}</p>
+                </div>
+                <div>
+                  <span className="text-xs text-slate-500">Effort</span>
+                  <p className="text-sm text-slate-300 mt-1">{selectedIdea.effort}</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="flex items-center justify-end gap-3 p-6 border-t border-slate-800">
+              <button 
+                onClick={closeModal}
+                className="px-4 py-2 text-sm font-medium text-slate-400 hover:text-white transition-colors"
+              >
+                Close
+              </button>
+              {selectedIdea.hasFullReport ? (
+                <button 
+                  onClick={handleViewFullReport}
+                  className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-500 rounded-lg text-sm font-medium transition-colors"
                 >
-                  <XCircle className="w-6 h-6" />
+                  <FileText className="w-4 h-4" />
+                  View Full Report
                 </button>
-              </div>
-
-              <div className="space-y-4">
-                <div>
-                  <h3 className="text-sm font-semibold text-slate-300 mb-2">Description</h3>
-                  <p className="text-slate-400">{selectedIdea.description}</p>
-                </div>
-
-                <div className="grid md:grid-cols-2 gap-4">
-                  {selectedIdea.estimatedMarket && (
-                    <div>
-                      <h3 className="text-sm font-semibold text-slate-300 mb-1">Estimated Market</h3>
-                      <p className="text-emerald-400">{selectedIdea.estimatedMarket}</p>
-                    </div>
-                  )}
-                  
-                  {selectedIdea.effort && (
-                    <div>
-                      <h3 className="text-sm font-semibold text-slate-300 mb-1">Effort Level</h3>
-                      <p className="text-slate-400">{selectedIdea.effort}</p>
-                    </div>
-                  )}
-                </div>
-
-                {selectedIdea.notes && (
-                  <div className="bg-slate-900 p-4 rounded-lg">
-                    <h3 className="text-sm font-semibold text-slate-300 mb-2">Notes</h3>
-                    <p className="text-slate-400 text-sm">{selectedIdea.notes}</p>
-                  </div>
-                )}
-
-                {selectedIdea.tags.length > 0 && (
-                  <div>
-                    <h3 className="text-sm font-semibold text-slate-300 mb-2">Tags</h3>
-                    <div className="flex flex-wrap gap-2">
-                      {selectedIdea.tags.map((tag) => (
-                        <span key={tag} className="text-sm bg-slate-800 text-slate-400 px-3 py-1 rounded-full">
-                          {tag}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* Current Stage */}
-                <div className="pt-4 border-t border-slate-700">
-                  <h3 className="text-sm font-semibold text-slate-300 mb-3">Current Stage: {stages.find(s => s.id === selectedIdea.stage)?.title}</h3>
-                  
-                  <div className="flex flex-wrap gap-2">
-                    {getNextStages(selectedIdea.stage).map((stage) => {
-                      const stageColors = colorClasses[stage.color]
-                      return (
-                        <button
-                          key={stage.id}
-                          onClick={() => {
-                            moveIdea(selectedIdea.id, stage.id)
-                            setSelectedIdea({ ...selectedIdea, stage: stage.id })
-                          }}
-                          className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${stageColors.bg} ${stageColors.text} hover:opacity-80`}
-                        >
-                          {stage.id === 'rejected' ? 'Reject' : `Move to ${stage.title}`}
-                        </button>
-                      )
-                    })}
-                  </div>
-                </div>
-              </div>
+              ) : (
+                <button 
+                  disabled
+                  className="flex items-center gap-2 px-4 py-2 bg-slate-700 text-slate-500 rounded-lg text-sm font-medium cursor-not-allowed"
+                >
+                  <FileText className="w-4 h-4" />
+                  Report Coming Soon
+                </button>
+              )}
             </div>
           </div>
         </div>
       )}
 
-      {/* Add Idea Modal */}
-      {showAddModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="card w-full max-w-lg">
-            <div className="p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-xl font-bold text-white">Add New Idea</h2>
-                <button
-                  onClick={() => setShowAddModal(false)}
-                  className="text-slate-500 hover:text-white"
+      {/* Full Report Viewer */}
+      {showFullReport && selectedIdea && selectedIdea.hasFullReport && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm" onClick={closeModal}>
+          <div className="bg-slate-900 border border-slate-700 rounded-xl max-w-4xl w-full max-h-[90vh] flex flex-col" onClick={e => e.stopPropagation()}>
+            {/* Report Header */}
+            <div className="flex items-center justify-between p-4 border-b border-slate-200 bg-white">
+              <div className="flex items-center gap-3">
+                <FileText className="w-5 h-5 text-indigo-600" />
+                <div>
+                  <h2 className="text-lg font-semibold text-slate-900">Full Research Report</h2>
+                  <p className="text-xs text-slate-500">{selectedIdea.title}</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <button 
+                  onClick={handleDownloadPDF}
+                  className="flex items-center gap-2 px-3 py-2 bg-emerald-600 hover:bg-emerald-500 rounded-lg text-sm font-medium transition-colors text-white"
                 >
-                  <XCircle className="w-6 h-6" />
+                  <Download className="w-4 h-4" />
+                  Download PDF
+                </button>
+                <button onClick={closeModal} className="p-2 hover:bg-slate-200 rounded-lg transition-colors">
+                  <X className="w-5 h-5 text-slate-600" />
                 </button>
               </div>
+            </div>
 
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-1">Title</label>
-                  <input
-                    type="text"
-                    value={newIdea.title}
-                    onChange={(e) => setNewIdea({ ...newIdea, title: e.target.value })}
-                    placeholder="What's the business idea?"
-                    className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-indigo-500"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-1">Description</label>
-                  <textarea
-                    value={newIdea.description}
-                    onChange={(e) => setNewIdea({ ...newIdea, description: e.target.value })}
-                    placeholder="Describe the idea in detail..."
-                    rows={3}
-                    className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-indigo-500"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-1">Tags (comma separated)</label>
-                  <input
-                    type="text"
-                    value={newIdea.tags}
-                    onChange={(e) => setNewIdea({ ...newIdea, tags: e.target.value })}
-                    placeholder="SaaS, AI, B2B..."
-                    className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-indigo-500"
-                  />
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-slate-300 mb-1">Estimated Market</label>
-                    <input
-                      type="text"
-                      value={newIdea.estimatedMarket}
-                      onChange={(e) => setNewIdea({ ...newIdea, estimatedMarket: e.target.value })}
-                      placeholder="€X/month"
-                      className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-indigo-500"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-slate-300 mb-1">Effort</label>
-                    <select
-                      value={newIdea.effort}
-                      onChange={(e) => setNewIdea({ ...newIdea, effort: e.target.value })}
-                      className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-indigo-500"
-                    >
-                      <option>Low</option>
-                      <option>Medium</option>
-                      <option>High</option>
-                    </select>
-                  </div>
-                </div>
-
-                <button
-                  onClick={handleAddIdea}
-                  className="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-3 rounded-lg font-medium transition-colors"
-                >
-                  Add Idea
-                </button>
+            {/* Report Content */}
+            <div className="flex-1 overflow-y-auto p-8 print:p-4 bg-white">
+              <div className="max-w-none text-slate-800 whitespace-pre-wrap font-mono text-sm leading-relaxed">
+                {FULL_RESEARCH_REPORT}
               </div>
+            </div>
+
+            {/* Report Footer */}
+            <div className="flex items-center justify-between p-4 border-t border-slate-200 bg-white">
+              <button 
+                onClick={() => setShowFullReport(false)}
+                className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-slate-600 hover:text-slate-900 transition-colors"
+              >
+                <ChevronRight className="w-4 h-4 rotate-180" />
+                Back to Summary
+              </button>
+              <button 
+                onClick={handleDownloadPDF}
+                className="flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-500 rounded-lg text-sm font-medium transition-colors text-white"
+              >
+                <Download className="w-4 h-4" />
+                Download PDF
+              </button>
             </div>
           </div>
         </div>
@@ -576,5 +710,3 @@ function Ideas() {
     </div>
   )
 }
-
-export default Ideas

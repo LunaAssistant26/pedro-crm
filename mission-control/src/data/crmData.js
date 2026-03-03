@@ -49,6 +49,32 @@ export const partners = [
     ],
     notes: 'First partner in CRM. Strong relationship with Suzanne.',
     lastUpdated: '2026-02-27'
+  },
+  {
+    id: 'ofapay',
+    name: 'OFAPay',
+    type: 'PSP (Payment Service Provider)',
+    status: 'Active',
+    contact: 'Adi',
+    website: 'https://ofapay.com',
+    regions: ['China', 'Vietnam', 'Indonesia', 'Philippines', 'India', 'Japan', 'Korea', 'Bangladesh'],
+    paymentMethods: ['Alipay', 'VietQR', 'QRIS', 'GCash', 'UPI', 'USDT', 'Local Wallets'],
+    industries: ['FX', 'Gaming', 'Crypto'],
+    settlementTimeframe: 'D+0 (Same Day)',
+    settlementCurrencies: ['USDT Only'],
+    rollingReserve: 'Standard',
+    commissionShare: 'Add 0.5-2% margin on buy rates',
+    activeClients: 0,
+    keyStrengths: [
+      '8 Asian markets with one integration',
+      'Best rates: Vietnam VietQR 1.6%, Indonesia QRIS 1.7%',
+      'USDT settlement only (fast, crypto-friendly)',
+      '24/7 service, D+0 settlement',
+      'Perfect for FX/Gaming verticals'
+    ],
+    clients: [],
+    notes: 'New partner added March 2, 2026. Asia specialist with local payment methods. Potential margin: +1% on buy rates.',
+    lastUpdated: '2026-03-02'
   }
 ]
 
