@@ -11,28 +11,78 @@
 		5997E804B23B8914F3ED34DA /* RouteDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7CE03D0B6CAA8666BCF32FBB /* RouteDetailView.swift */; };
 		96407EAB07F4BFED432F6AED /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 6081B2AAE4AB0377E8AE329E /* Foundation.framework */; };
 		AA1702355CE5C6C63639A219 /* RouteViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3FCB5A6A6DB1630B3C23397D /* RouteViewModel.swift */; };
+		B2C3D4E5F6G7H8I9J0K1L2M3 /* FeedbackView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3D4E5F6G7H8I9J0K1L2M3N4 /* FeedbackView.swift */; };
 		C59A1397B8011D156511AE99 /* NavigationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4DAB48E5EDDD4DD609E00C1B /* NavigationView.swift */; };
+		374911B19BE746D7A443D0F1 /* MuterVideoPreviewView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 61D50A7596494FDEBCE71FF2 /* MuterVideoPreviewView.swift */; };
 		D03B2BB31E321D4263AA8EEE /* Route.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A903703C55923864C7F2710 /* Route.swift */; };
+		D4E5F6G7H8I9J0K1L2M3N4O5 /* CaptureViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = E5F6G7H8I9J0K1L2M3N4O5P6 /* CaptureViews.swift */; };
+		5FDEF5594D234B45A4CAB1D036DD7170 /* ShareSheetView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1B99BBA35464F85999BFB3213A6DCDB /* ShareSheetView.swift */; };
+		E6F00B87F8344AAFA6C283C766B59882 /* PhotoCaptureView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5DA3BB9F96BD47908AEE2F59700CB4A7 /* PhotoCaptureView.swift */; };
+		50B1F7DCADD74FEE9759601293514B8F /* CollageEditorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F4162B59B2F14AF7946E9FAB0C0FE1AE /* CollageEditorView.swift */; };
 		DDC33299D6BCDA046302249E /* TimeSelectorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 50B4B0372746FF8DFD01FDA2 /* TimeSelectorView.swift */; };
 		E4F01EC31576E8F198BB1653 /* WalkingRoutesApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = CCB0E554FB679B94816F6CA6 /* WalkingRoutesApp.swift */; };
+		EB2224B22F57323700BEC6CA /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = EB2224B12F57323700BEC6CA /* Assets.xcassets */; };
 		F1A2B3C4D5E6F7G8H9I0J1K2 /* LandmarkDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6G7H8I9J0K1L2 /* LandmarkDetailView.swift */; };
-		B2C3D4E5F6G7H8I9J0K1L2M3 /* FeedbackView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3D4E5F6G7H8I9J0K1L2M3N4 /* FeedbackView.swift */; };
-		D4E5F6G7H8I9J0K1L2M3N4O5 /* CaptureViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = E5F6G7H8I9J0K1L2M3N4O5P6 /* CaptureViews.swift */; };
+		G2H3I4J5K6L7M8N9O0P1Q2R3 /* LandmarkCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2C3D4E5F6G7H8I9J0K1L2M3N4 /* LandmarkCard.swift */; };
+		H3I4J5K6L7M8N9O0P1Q2R3S4 /* LandmarkListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3D4E5F6G7H8I9J0K1L2M3N4O5 /* LandmarkListView.swift */; };
+		A0A0A0A0A0A0A0A0A0A0A001 /* ShareService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0A0A0A0A0A0A0A0A0A0B001 /* ShareService.swift */; };
+		A0A0A0A0A0A0A0A0A0A0A002 /* PhotoService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0A0A0A0A0A0A0A0A0A0B002 /* PhotoService.swift */; };
+		A0A0A0A0A0A0A0A0A0A0A003 /* CollageGenerator.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0A0A0A0A0A0A0A0A0A0B003 /* CollageGenerator.swift */; };
+		A0A0A0A0A0A0A0A0A0A0A004 /* RouteGenerationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0A0A0A0A0A0A0A0A0A0B004 /* RouteGenerationService.swift */; };
+		A0A0A0A0A0A0A0A0A0A0A005 /* PointsOfInterest.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0A0A0A0A0A0A0A0A0A0B005 /* PointsOfInterest.swift */; };
+		A0A0A0A0A0A0A0A0A0A0A006 /* RoutePhoto.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0A0A0A0A0A0A0A0A0A0B006 /* RoutePhoto.swift */; };
+		A0A0A0A0A0A0A0A0A0A0A007 /* CollageTemplate.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0A0A0A0A0A0A0A0A0A0B007 /* CollageTemplate.swift */; };
+		A0A0A0A0A0A0A0A0A0A0A008 /* RouteSnapshotGenerator.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0A0A0A0A0A0A0A0A0A0B008 /* RouteSnapshotGenerator.swift */; };
+		A0A0A0A0A0A0A0A0A0A0A009 /* NavigationStep.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0A0A0A0A0A0A0A0A0A0B009 /* NavigationStep.swift */; };
+		A0A0A0A0A0A0A0A0A0A0A00A /* NavigationStep+MapKit.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0A0A0A0A0A0A0A0A0A0B00A /* NavigationStep+MapKit.swift */; };
+		A0A0A0A0A0A0A0A0A0A0A00B /* NavigationDirectionsService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0A0A0A0A0A0A0A0A0A0B00B /* NavigationDirectionsService.swift */; };
+		A0A0A0A0A0A0A0A0A0A0A00C /* PolylineMath.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0A0A0A0A0A0A0A0A0A0B00C /* PolylineMath.swift */; };
+		A0A0A0A0A0A0A0A0A0A0A00D /* RouteNavigationViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0A0A0A0A0A0A0A0A0A0B00D /* RouteNavigationViewModel.swift */; };
+		A0A0A0A0A0A0A0A0A0A0A00E /* RouteCompletionStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0A0A0A0A0A0A0A0A0A0B00E /* RouteCompletionStore.swift */; };
+		A0A0A0A0A0A0A0A0A0A0A00F /* FinishWalkActionsSheetView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0A0A0A0A0A0A0A0A0A0B00F /* FinishWalkActionsSheetView.swift */; };
+		A0A0A0A0A0A0A0A0A0A0A010 /* RouteVideoGenerator.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0A0A0A0A0A0A0A0A0A0B010 /* RouteVideoGenerator.swift */; };
+		A0A0A0A0A0A0A0A0A0A0A011 /* LookAroundTransitionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0A0A0A0A0A0A0A0A0A0B011 /* LookAroundTransitionView.swift */; };
+		57327C8776134A9180C53DFA /* MuterVideoGenerator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3E45E550FEFA4DB2A8924DF0 /* MuterVideoGenerator.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
 		3A903703C55923864C7F2710 /* Route.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = Route.swift; path = Models/Route.swift; sourceTree = "<group>"; };
 		3FCB5A6A6DB1630B3C23397D /* RouteViewModel.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = RouteViewModel.swift; path = ViewModels/RouteViewModel.swift; sourceTree = "<group>"; };
 		4DAB48E5EDDD4DD609E00C1B /* NavigationView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = NavigationView.swift; path = Views/NavigationView.swift; sourceTree = "<group>"; };
+		61D50A7596494FDEBCE71FF2 /* MuterVideoPreviewView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = MuterVideoPreviewView.swift; path = Views/MuterVideoPreviewView.swift; sourceTree = "<group>"; };
 		50B4B0372746FF8DFD01FDA2 /* TimeSelectorView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = TimeSelectorView.swift; path = Views/TimeSelectorView.swift; sourceTree = "<group>"; };
 		5AF3E278D6DCEA7CE850622B /* ContentView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ContentView.swift; path = Views/ContentView.swift; sourceTree = "<group>"; };
 		6081B2AAE4AB0377E8AE329E /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS18.0.sdk/System/Library/Frameworks/Foundation.framework; sourceTree = DEVELOPER_DIR; };
 		7CE03D0B6CAA8666BCF32FBB /* RouteDetailView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = RouteDetailView.swift; path = Views/RouteDetailView.swift; sourceTree = "<group>"; };
-		CCB0E554FB679B94816F6CA6 /* WalkingRoutesApp.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = WalkingRoutesApp.swift; path = App/WalkingRoutesApp.swift; sourceTree = "<group>"; };
 		A1B2C3D4E5F6G7H8I9J0K1L2 /* LandmarkDetailView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LandmarkDetailView.swift; path = Views/LandmarkDetailView.swift; sourceTree = "<group>"; };
+		B2C3D4E5F6G7H8I9J0K1L2M3N4 /* LandmarkCard.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LandmarkCard.swift; path = Views/LandmarkCard.swift; sourceTree = "<group>"; };
+		C3D4E5F6G7H8I9J0K1L2M3N4O5 /* LandmarkListView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LandmarkListView.swift; path = Views/LandmarkListView.swift; sourceTree = "<group>"; };
 		C3D4E5F6G7H8I9J0K1L2M3N4 /* FeedbackView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = FeedbackView.swift; path = Views/FeedbackView.swift; sourceTree = "<group>"; };
-		E5F6G7H8I9J0K1L2M3N4O5P6 /* CaptureViews.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = CaptureViews.swift; path = Views/CaptureViews.swift; sourceTree = "<group>"; };
+		CCB0E554FB679B94816F6CA6 /* WalkingRoutesApp.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = WalkingRoutesApp.swift; path = App/WalkingRoutesApp.swift; sourceTree = "<group>"; };
 		D0F55BD9DA2529B7E70840DC /* WalkingRoutes.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = WalkingRoutes.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		E5F6G7H8I9J0K1L2M3N4O5P6 /* CaptureViews.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = CaptureViews.swift; path = Views/CaptureViews.swift; sourceTree = "<group>"; };
+		D1B99BBA35464F85999BFB3213A6DCDB /* ShareSheetView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ShareSheetView.swift; path = Views/Share/ShareSheetView.swift; sourceTree = "<group>"; };
+		5DA3BB9F96BD47908AEE2F59700CB4A7 /* PhotoCaptureView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = PhotoCaptureView.swift; path = Views/Camera/PhotoCaptureView.swift; sourceTree = "<group>"; };
+		F4162B59B2F14AF7946E9FAB0C0FE1AE /* CollageEditorView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = CollageEditorView.swift; path = Views/Collage/CollageEditorView.swift; sourceTree = "<group>"; };
+		EB2224B12F57323700BEC6CA /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		A0A0A0A0A0A0A0A0A0A0B001 /* ShareService.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ShareService.swift; path = Services/ShareService.swift; sourceTree = "<group>"; };
+		A0A0A0A0A0A0A0A0A0A0B002 /* PhotoService.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = PhotoService.swift; path = Services/PhotoService.swift; sourceTree = "<group>"; };
+		A0A0A0A0A0A0A0A0A0A0B003 /* CollageGenerator.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = CollageGenerator.swift; path = Services/CollageGenerator.swift; sourceTree = "<group>"; };
+		A0A0A0A0A0A0A0A0A0A0B004 /* RouteGenerationService.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = RouteGenerationService.swift; path = Services/RouteGenerationService.swift; sourceTree = "<group>"; };
+		A0A0A0A0A0A0A0A0A0A0B005 /* PointsOfInterest.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = PointsOfInterest.swift; path = Services/PointsOfInterest.swift; sourceTree = "<group>"; };
+		A0A0A0A0A0A0A0A0A0A0B006 /* RoutePhoto.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = RoutePhoto.swift; path = Models/RoutePhoto.swift; sourceTree = "<group>"; };
+		A0A0A0A0A0A0A0A0A0A0B007 /* CollageTemplate.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = CollageTemplate.swift; path = Models/CollageTemplate.swift; sourceTree = "<group>"; };
+		A0A0A0A0A0A0A0A0A0A0B008 /* RouteSnapshotGenerator.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = RouteSnapshotGenerator.swift; path = Utilities/RouteSnapshotGenerator.swift; sourceTree = "<group>"; };
+		A0A0A0A0A0A0A0A0A0A0B009 /* NavigationStep.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = NavigationStep.swift; path = WalkingRoutes/Models/NavigationStep.swift; sourceTree = SOURCE_ROOT; };
+		A0A0A0A0A0A0A0A0A0A0B00A /* NavigationStep+MapKit.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = "NavigationStep+MapKit.swift"; path = "WalkingRoutes/Models/NavigationStep+MapKit.swift"; sourceTree = SOURCE_ROOT; };
+		A0A0A0A0A0A0A0A0A0A0B00B /* NavigationDirectionsService.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = NavigationDirectionsService.swift; path = WalkingRoutes/Services/NavigationDirectionsService.swift; sourceTree = SOURCE_ROOT; };
+		A0A0A0A0A0A0A0A0A0A0B00C /* PolylineMath.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = PolylineMath.swift; path = WalkingRoutes/Utilities/PolylineMath.swift; sourceTree = SOURCE_ROOT; };
+		A0A0A0A0A0A0A0A0A0A0B00D /* RouteNavigationViewModel.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = RouteNavigationViewModel.swift; path = WalkingRoutes/ViewModels/RouteNavigationViewModel.swift; sourceTree = SOURCE_ROOT; };
+		A0A0A0A0A0A0A0A0A0A0B00E /* RouteCompletionStore.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = RouteCompletionStore.swift; path = WalkingRoutes/Utilities/RouteCompletionStore.swift; sourceTree = SOURCE_ROOT; };
+		A0A0A0A0A0A0A0A0A0A0B00F /* FinishWalkActionsSheetView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = FinishWalkActionsSheetView.swift; path = WalkingRoutes/Views/FinishWalk/FinishWalkActionsSheetView.swift; sourceTree = SOURCE_ROOT; };
+		A0A0A0A0A0A0A0A0A0A0B010 /* RouteVideoGenerator.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = RouteVideoGenerator.swift; path = Services/RouteVideoGenerator.swift; sourceTree = "<group>"; };
+		3E45E550FEFA4DB2A8924DF0 /* MuterVideoGenerator.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = MuterVideoGenerator.swift; path = Services/MuterVideoGenerator.swift; sourceTree = "<group>"; };
+		A0A0A0A0A0A0A0A0A0A0B011 /* LookAroundTransitionView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LookAroundTransitionView.swift; path = Views/LookAround/LookAroundTransitionView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -88,13 +138,32 @@
 				3FCB5A6A6DB1630B3C23397D /* RouteViewModel.swift */,
 				5AF3E278D6DCEA7CE850622B /* ContentView.swift */,
 				4DAB48E5EDDD4DD609E00C1B /* NavigationView.swift */,
+				61D50A7596494FDEBCE71FF2 /* MuterVideoPreviewView.swift */,
 				7CE03D0B6CAA8666BCF32FBB /* RouteDetailView.swift */,
 				50B4B0372746FF8DFD01FDA2 /* TimeSelectorView.swift */,
 				A1B2C3D4E5F6G7H8I9J0K1L2 /* LandmarkDetailView.swift */,
+				B2C3D4E5F6G7H8I9J0K1L2M3N4 /* LandmarkCard.swift */,
+				C3D4E5F6G7H8I9J0K1L2M3N4O5 /* LandmarkListView.swift */,
 				C3D4E5F6G7H8I9J0K1L2M3N4 /* FeedbackView.swift */,
+				EB2224B12F57323700BEC6CA /* Assets.xcassets */,
 				E5F6G7H8I9J0K1L2M3N4O5P6 /* CaptureViews.swift */,
+				D1B99BBA35464F85999BFB3213A6DCDB /* ShareSheetView.swift */,
+				5DA3BB9F96BD47908AEE2F59700CB4A7 /* PhotoCaptureView.swift */,
+				F4162B59B2F14AF7946E9FAB0C0FE1AE /* CollageEditorView.swift */,
+				A0A0A0A0A0A0A0A0A0A0B001 /* ShareService.swift */,
+				A0A0A0A0A0A0A0A0A0A0B002 /* PhotoService.swift */,
+				A0A0A0A0A0A0A0A0A0A0B003 /* CollageGenerator.swift */,
+				A0A0A0A0A0A0A0A0A0A0B004 /* RouteGenerationService.swift */,
+				A0A0A0A0A0A0A0A0A0A0B005 /* PointsOfInterest.swift */,
+				A0A0A0A0A0A0A0A0A0A0B006 /* RoutePhoto.swift */,
+				A0A0A0A0A0A0A0A0A0A0B007 /* CollageTemplate.swift */,
+				A0A0A0A0A0A0A0A0A0A0B008 /* RouteSnapshotGenerator.swift */,
+				A0A0A0A0A0A0A0A0A0A0B00E /* RouteCompletionStore.swift */,
+				A0A0A0A0A0A0A0A0A0A0B00F /* FinishWalkActionsSheetView.swift */,
+				A0A0A0A0A0A0A0A0A0A0B010 /* RouteVideoGenerator.swift */,
+				3E45E550FEFA4DB2A8924DF0 /* MuterVideoGenerator.swift */,
+				A0A0A0A0A0A0A0A0A0A0B011 /* LookAroundTransitionView.swift */,
 			);
-			name = WalkingRoutes;
 			path = WalkingRoutes;
 			sourceTree = "<group>";
 		};
@@ -126,6 +195,12 @@
 			attributes = {
 				LastSwiftUpdateCheck = 1600;
 				LastUpgradeCheck = 1600;
+				TargetAttributes = {
+					4EB733FBA6A00ACC3E33F936 = {
+						DevelopmentTeam = C82CNXUF4B;
+						ProvisioningStyle = Automatic;
+					};
+				};
 			};
 			buildConfigurationList = 07F122A8F6C9DE9ABD1712D3 /* Build configuration list for PBXProject "WalkingRoutes" */;
 			compatibilityVersion = "Xcode 3.2";
@@ -136,8 +211,6 @@
 				Base,
 			);
 			mainGroup = DBA5EA68C4A8D965316BC209;
-			minimizedProjectReferenceProxies = 0;
-			preferredProjectObjectVersion = 77;
 			productRefGroup = 874CCCE3F0272010EC304E6B /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
@@ -152,6 +225,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				EB2224B22F57323700BEC6CA /* Assets.xcassets in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -167,11 +241,35 @@
 				AA1702355CE5C6C63639A219 /* RouteViewModel.swift in Sources */,
 				1B34CD3DC15CFFD1740F22CE /* ContentView.swift in Sources */,
 				C59A1397B8011D156511AE99 /* NavigationView.swift in Sources */,
+				374911B19BE746D7A443D0F1 /* MuterVideoPreviewView.swift in Sources */,
 				5997E804B23B8914F3ED34DA /* RouteDetailView.swift in Sources */,
 				DDC33299D6BCDA046302249E /* TimeSelectorView.swift in Sources */,
 				F1A2B3C4D5E6F7G8H9I0J1K2 /* LandmarkDetailView.swift in Sources */,
+				G2H3I4J5K6L7M8N9O0P1Q2R3 /* LandmarkCard.swift in Sources */,
+				H3I4J5K6L7M8N9O0P1Q2R3S4 /* LandmarkListView.swift in Sources */,
 				B2C3D4E5F6G7H8I9J0K1L2M3 /* FeedbackView.swift in Sources */,
 				D4E5F6G7H8I9J0K1L2M3N4O5 /* CaptureViews.swift in Sources */,
+				5FDEF5594D234B45A4CAB1D036DD7170 /* ShareSheetView.swift in Sources */,
+				E6F00B87F8344AAFA6C283C766B59882 /* PhotoCaptureView.swift in Sources */,
+				50B1F7DCADD74FEE9759601293514B8F /* CollageEditorView.swift in Sources */,
+				A0A0A0A0A0A0A0A0A0A0A001 /* ShareService.swift in Sources */,
+				A0A0A0A0A0A0A0A0A0A0A002 /* PhotoService.swift in Sources */,
+				A0A0A0A0A0A0A0A0A0A0A003 /* CollageGenerator.swift in Sources */,
+				A0A0A0A0A0A0A0A0A0A0A004 /* RouteGenerationService.swift in Sources */,
+				A0A0A0A0A0A0A0A0A0A0A005 /* PointsOfInterest.swift in Sources */,
+				A0A0A0A0A0A0A0A0A0A0A006 /* RoutePhoto.swift in Sources */,
+				A0A0A0A0A0A0A0A0A0A0A007 /* CollageTemplate.swift in Sources */,
+				A0A0A0A0A0A0A0A0A0A0A008 /* RouteSnapshotGenerator.swift in Sources */,
+				A0A0A0A0A0A0A0A0A0A0A009 /* NavigationStep.swift in Sources */,
+				A0A0A0A0A0A0A0A0A0A0A00A /* NavigationStep+MapKit.swift in Sources */,
+				A0A0A0A0A0A0A0A0A0A0A00B /* NavigationDirectionsService.swift in Sources */,
+				A0A0A0A0A0A0A0A0A0A0A00C /* PolylineMath.swift in Sources */,
+				A0A0A0A0A0A0A0A0A0A0A00D /* RouteNavigationViewModel.swift in Sources */,
+				A0A0A0A0A0A0A0A0A0A0A00E /* RouteCompletionStore.swift in Sources */,
+				A0A0A0A0A0A0A0A0A0A0A00F /* FinishWalkActionsSheetView.swift in Sources */,
+				A0A0A0A0A0A0A0A0A0A0A010 /* RouteVideoGenerator.swift in Sources */,
+				57327C8776134A9180C53DFA /* MuterVideoGenerator.swift in Sources */,
+				A0A0A0A0A0A0A0A0A0A0A011 /* LookAroundTransitionView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -230,8 +328,7 @@
 				MTL_FAST_MATH = YES;
 				PRODUCT_BUNDLE_IDENTIFIER = com.pedro.walkingroutes;
 				PRODUCT_NAME = "$(TARGET_NAME)";
-				SWIFT_COMPILATION_MODE = wholemodule;
-				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_OPTIMIZATION_LEVEL = "-Owholemodule";
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};
@@ -306,14 +403,17 @@
 		98052029C70A65F933FA130F /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
-				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				ASSETCATALOG_COMPILER_APPICON_NAME = "";
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = "";
 				CLANG_ENABLE_OBJC_WEAK = NO;
+				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = C82CNXUF4B;
 				INFOPLIST_FILE = WalkingRoutes/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks";
 				PRODUCT_BUNDLE_IDENTIFIER = com.pedro.walkingroutes;
+				PROVISIONING_PROFILE_SPECIFIER = "";
 				SDKROOT = iphoneos;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
@@ -323,14 +423,17 @@
 		9C319197C2CCCFAB1C75017C /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
-				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				ASSETCATALOG_COMPILER_APPICON_NAME = "";
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = "";
 				CLANG_ENABLE_OBJC_WEAK = NO;
+				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = C82CNXUF4B;
 				INFOPLIST_FILE = WalkingRoutes/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks";
 				PRODUCT_BUNDLE_IDENTIFIER = com.pedro.walkingroutes;
+				PROVISIONING_PROFILE_SPECIFIER = "";
 				SDKROOT = iphoneos;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
@@ -363,3 +466,6 @@
 	};
 	rootObject = 615FB5B2874C5BADD2D807C2 /* Project object */;
 }
+
+// Added files - LandmarkCard.swift and LandmarkListView.swift references
+// These need to be properly integrated into the project file

@@ -3,9 +3,7 @@ import SwiftUI
 enum CaptureScreen {
     case normal
     case home
-    case canal
-    case jordaan
-    case vondelpark
+    case loop
     case navigation
     case demo
 
@@ -17,9 +15,7 @@ enum CaptureScreen {
 
         switch args[flagIndex + 1].lowercased() {
         case "home": return .home
-        case "canal": return .canal
-        case "jordaan": return .jordaan
-        case "vondelpark": return .vondelpark
+        case "loop": return .loop
         case "navigation": return .navigation
         case "demo": return .demo
         default: return .normal
@@ -27,21 +23,41 @@ enum CaptureScreen {
     }
 }
 
+private func makePreviewLoopRoute() -> Route {
+    Route(
+        id: UUID(),
+        name: "Preview Loop",
+        description: "A simple loop route used for capture/previews.",
+        duration: 60,
+        distance: 4.8,
+        difficulty: .easy,
+        category: .highlights,
+        landmarks: Array(PointsOfInterest.all.prefix(2)),
+        coordinates: [
+            Location(latitude: 52.3780, longitude: 4.9006),
+            Location(latitude: 52.3810, longitude: 4.9100),
+            Location(latitude: 52.3720, longitude: 4.9150),
+            Location(latitude: 52.3780, longitude: 4.9006)
+        ],
+        navigationSteps: nil,
+        imageURL: nil,
+        city: nil
+    )
+}
+
 struct CaptureRootView: View {
     private let screen: CaptureScreen = .fromProcessArguments()
 
     var body: some View {
+        let previewRoute = makePreviewLoopRoute()
+
         switch screen {
         case .home:
             ContentView(initialSelectedTime: 45, useLocation: false)
-        case .canal:
-            NavigationStack { RouteDetailView(route: SampleData.routes[0]) }
-        case .jordaan:
-            NavigationStack { RouteDetailView(route: SampleData.routes[1]) }
-        case .vondelpark:
-            NavigationStack { RouteDetailView(route: SampleData.routes[2]) }
+        case .loop:
+            NavigationStack { RouteDetailView(route: previewRoute) }
         case .navigation:
-            NavigationStack { RouteNavigationView(route: SampleData.routes[0], useLocation: false) }
+            NavigationStack { RouteNavigationView(route: previewRoute, useLocation: false) }
         case .demo:
             DemoCaptureFlowView()
         case .normal:
@@ -54,6 +70,8 @@ private struct DemoCaptureFlowView: View {
     @State private var stage: Int = 0
 
     var body: some View {
+        let previewRoute = makePreviewLoopRoute()
+
         Group {
             switch stage {
             case 0:
@@ -61,11 +79,11 @@ private struct DemoCaptureFlowView: View {
             case 1:
                 ContentView(initialSelectedTime: 60, useLocation: false)
             case 2:
-                NavigationStack { RouteDetailView(route: SampleData.routes[0]) }
+                NavigationStack { RouteDetailView(route: previewRoute) }
             case 3:
-                NavigationStack { RouteDetailView(route: SampleData.routes[0]) }
+                NavigationStack { RouteDetailView(route: previewRoute) }
             default:
-                NavigationStack { RouteNavigationView(route: SampleData.routes[0], useLocation: false) }
+                NavigationStack { RouteNavigationView(route: previewRoute, useLocation: false) }
             }
         }
         .onAppear {

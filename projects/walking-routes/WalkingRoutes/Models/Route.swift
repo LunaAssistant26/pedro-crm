@@ -13,6 +13,11 @@ struct Route: Identifiable, Codable {
     let category: RouteCategory
     let landmarks: [Landmark]
     let coordinates: [Location]
+    /// Optional persisted turn-by-turn steps (MapKit directions) for this route.
+    ///
+    /// - Generated routes: populated during generation (cheap to reuse).
+    /// - Demo/static routes: may be nil and can be regenerated on-demand.
+    let navigationSteps: [NavigationStep]?
     let imageURL: String?
     let city: String? // For filtering by city
 
@@ -109,6 +114,140 @@ struct Landmark: Identifiable, Codable {
     let estimatedTime: Int // minutes to spend here
     let imageURL: String?
     let rating: Double?
+
+    // MARK: - Enhanced landmark details (Task 2)
+
+    /// Longer text (roughly 200–500 chars). Use when available.
+    var detailedDescription: String?
+
+    /// Official landmark website.
+    var websiteURL: URL?
+
+    /// Direct booking / tickets link.
+    var bookingURL: URL?
+
+    /// Wikipedia / tourism site / extra info.
+    var infoURL: URL?
+
+    /// Human-readable opening hours, e.g. "Mon–Sun: 9:00–18:00".
+    var openingHours: String?
+
+    /// Human-readable admission pricing.
+    var admissionFee: String?
+
+    /// Phone number for bookings or info.
+    var phoneNumber: String?
+
+    /// Accessibility notes (wheelchair, elevators, etc.).
+    var accessibilityInfo: String?
+
+    /// Lightweight categorization & filtering.
+    var tags: [String]
+
+    var isBookable: Bool { bookingURL != nil }
+
+    /// Convenience for grouping in UI.
+    var primaryTag: String {
+        tags.first ?? "other"
+    }
+
+    /// Coding keys for custom encoding/decoding of URLs
+    enum CodingKeys: String, CodingKey {
+        case id, name, description, location, estimatedTime, imageURL, rating
+        case detailedDescription, openingHours, admissionFee, phoneNumber
+        case accessibilityInfo, tags
+        case websiteURLString, bookingURLString, infoURLString
+    }
+
+    init(
+        id: UUID = UUID(),
+        name: String,
+        description: String,
+        location: Location,
+        estimatedTime: Int,
+        imageURL: String? = nil,
+        rating: Double? = nil,
+        detailedDescription: String? = nil,
+        websiteURL: URL? = nil,
+        bookingURL: URL? = nil,
+        infoURL: URL? = nil,
+        openingHours: String? = nil,
+        admissionFee: String? = nil,
+        phoneNumber: String? = nil,
+        accessibilityInfo: String? = nil,
+        tags: [String] = []
+    ) {
+        self.id = id
+        self.name = name
+        self.description = description
+        self.location = location
+        self.estimatedTime = estimatedTime
+        self.imageURL = imageURL
+        self.rating = rating
+        self.detailedDescription = detailedDescription
+        self.websiteURL = websiteURL
+        self.bookingURL = bookingURL
+        self.infoURL = infoURL
+        self.openingHours = openingHours
+        self.admissionFee = admissionFee
+        self.phoneNumber = phoneNumber
+        self.accessibilityInfo = accessibilityInfo
+        self.tags = tags
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(UUID.self, forKey: .id)
+        name = try container.decode(String.self, forKey: .name)
+        description = try container.decode(String.self, forKey: .description)
+        location = try container.decode(Location.self, forKey: .location)
+        estimatedTime = try container.decode(Int.self, forKey: .estimatedTime)
+        imageURL = try container.decodeIfPresent(String.self, forKey: .imageURL)
+        rating = try container.decodeIfPresent(Double.self, forKey: .rating)
+        detailedDescription = try container.decodeIfPresent(String.self, forKey: .detailedDescription)
+        openingHours = try container.decodeIfPresent(String.self, forKey: .openingHours)
+        admissionFee = try container.decodeIfPresent(String.self, forKey: .admissionFee)
+        phoneNumber = try container.decodeIfPresent(String.self, forKey: .phoneNumber)
+        accessibilityInfo = try container.decodeIfPresent(String.self, forKey: .accessibilityInfo)
+        tags = try container.decodeIfPresent([String].self, forKey: .tags) ?? []
+
+        // Decode URLs from strings
+        if let urlString = try container.decodeIfPresent(String.self, forKey: .websiteURLString) {
+            websiteURL = URL(string: urlString)
+        } else {
+            websiteURL = nil
+        }
+        if let urlString = try container.decodeIfPresent(String.self, forKey: .bookingURLString) {
+            bookingURL = URL(string: urlString)
+        } else {
+            bookingURL = nil
+        }
+        if let urlString = try container.decodeIfPresent(String.self, forKey: .infoURLString) {
+            infoURL = URL(string: urlString)
+        } else {
+            infoURL = nil
+        }
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(id, forKey: .id)
+        try container.encode(name, forKey: .name)
+        try container.encode(description, forKey: .description)
+        try container.encode(location, forKey: .location)
+        try container.encode(estimatedTime, forKey: .estimatedTime)
+        try container.encodeIfPresent(imageURL, forKey: .imageURL)
+        try container.encodeIfPresent(rating, forKey: .rating)
+        try container.encodeIfPresent(detailedDescription, forKey: .detailedDescription)
+        try container.encodeIfPresent(openingHours, forKey: .openingHours)
+        try container.encodeIfPresent(admissionFee, forKey: .admissionFee)
+        try container.encodeIfPresent(phoneNumber, forKey: .phoneNumber)
+        try container.encodeIfPresent(accessibilityInfo, forKey: .accessibilityInfo)
+        try container.encode(tags, forKey: .tags)
+        try container.encodeIfPresent(websiteURL?.absoluteString, forKey: .websiteURLString)
+        try container.encodeIfPresent(bookingURL?.absoluteString, forKey: .bookingURLString)
+        try container.encodeIfPresent(infoURL?.absoluteString, forKey: .infoURLString)
+    }
 }
 
 struct Location: Codable {

@@ -2,204 +2,369 @@ import SwiftUI
 import MapKit
 import CoreLocation
 import os.log
+import UIKit
+import Combine
 
+/// Maps-like turn-by-turn navigation (walking) + in-nav photo capture + simple wrong-turn detection.
 struct RouteNavigationView: View {
     let route: Route
     var useLocation: Bool = true
+
     @Environment(\.dismiss) private var dismiss
+
     @State private var locationManager: LocationManager?
-    @State private var currentStopIndex: Int = 0
-    @State private var arrivedMessage: String?
-    @State private var mapError: Error?
+    @StateObject private var photoService = PhotoService.shared
+    @StateObject private var navModel: RouteNavigationViewModel
 
-    private let logger = Logger(subsystem: "com.walkingroutes", category: "NavigationView")
+    @State private var showCamera = false
+    @State private var isDemoNavigation = false
 
-    private var currentLandmark: Landmark? {
-        guard route.landmarks.indices.contains(currentStopIndex) else { return nil }
-        return route.landmarks[currentStopIndex]
+    @State private var showFinishSheet = false
+    @State private var showShareSheet = false
+    @State private var showCollageSheet = false
+    @State private var showMuterVideoSheet = false
+    @State private var didAutoPresentFinish = false
+
+    private let logger = Logger(subsystem: "com.walkingroutes", category: "RouteNavigationView")
+
+    init(route: Route, useLocation: Bool = true) {
+        self.route = route
+        self.useLocation = useLocation
+        _navModel = StateObject(wrappedValue: RouteNavigationViewModel(route: route))
+    }
+
+    private var effectiveUseLocation: Bool { useLocation && !isDemoNavigation }
+
+    private var locationUpdates: AnyPublisher<CLLocationCoordinate2D, Never> {
+        guard effectiveUseLocation else { return Empty().eraseToAnyPublisher() }
+        if let locationManager {
+            return locationManager.$currentCoordinate
+                .compactMap { $0 }
+                .eraseToAnyPublisher()
+        }
+        return Empty().eraseToAnyPublisher()
     }
 
     var body: some View {
-        ZStack {
-            RouteMapViewRepresentable(
-                route: route,
-                routeColor: route.routeColor,
-                showsUserLocation: useLocation,
-                followUser: useLocation,
-                userCoordinate: useLocation ? locationManager?.currentCoordinate : nil,
-                showsNumberedPins: true
-            )
-            .ignoresSafeArea()
+        RouteMapViewRepresentable(
+            route: route,
+            routeColor: route.routeColor,
+            showsUserLocation: effectiveUseLocation,
+            followUser: effectiveUseLocation,
+            userCoordinate: effectiveUseLocation ? locationManager?.currentCoordinate : nil,
+            showsNumberedPins: true,
+            fitToRoute: false
+        )
+        .ignoresSafeArea()
+        // Keep controls above the MKMapView so taps always land on buttons (Exit/Camera).
+        .overlay(alignment: .top) {
+            VStack(spacing: 0) {
+                topControls
 
-            VStack {
-                HStack {
-                    Spacer()
-                    Button {
-                        logger.log("Exit button tapped - dismissing navigation view")
-                        dismiss()
-                    } label: {
-                        Label("Exit", systemImage: "xmark")
-                            .font(.subheadline.weight(.semibold))
-                            .padding(.horizontal, 12)
-                            .padding(.vertical, 8)
-                            .background(.ultraThinMaterial)
-                            .clipShape(Capsule())
-                    }
+                if navModel.isOffRoute {
+                    offRouteBanner
+                        .padding(.horizontal)
+                        .padding(.top, 10)
+                        .transition(.move(edge: .top).combined(with: .opacity))
                 }
+
+                Spacer(minLength: 0)
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+            .zIndex(10)
+        }
+        .overlay(alignment: .bottom) {
+            turnByTurnCard
                 .padding(.horizontal)
-                .padding(.top, 8)
-
-                Spacer()
-
-                if let landmark = currentLandmark {
-                    NextLandmarkCard(
-                        landmark: landmark,
-                        routeColor: route.routeColor.color,
-                        stopIndex: currentStopIndex + 1,
-                        totalStops: route.landmarks.count,
-                        distanceText: distanceText(to: landmark),
-                        directionHint: directionHint(to: landmark)
-                    )
-                    .padding()
-                }
-            }
-
-            if let arrivedMessage {
-                VStack {
-                    Text(arrivedMessage)
-                        .font(.subheadline.weight(.semibold))
-                        .padding(.horizontal, 14)
-                        .padding(.vertical, 10)
-                        .background(.regularMaterial)
-                        .clipShape(Capsule())
-                        .padding(.top, 60)
-                    Spacer()
-                }
-                .transition(.move(edge: .top).combined(with: .opacity))
-            }
+                .padding(.bottom, 16)
+                .zIndex(10)
         }
         .navigationBarBackButtonHidden(true)
         .navigationBarHidden(true)
         .onAppear {
             logger.log("NavigationView appeared for route: \(route.name)")
-            if useLocation {
+
+            navModel.loadStepsIfNeeded()
+
+            // Default behaviour: demo navigation (no GPS, no permission prompt).
+            isDemoNavigation = !useLocation
+            if isDemoNavigation {
+                navModel.enableDemoMode()
+            } else {
                 setupLocationManager()
+
+                // If location isn't authorized or we don't get a fix quickly, fall back to demo.
+                DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
+                    guard useLocation else { return }
+                    guard !isDemoNavigation else { return }
+
+                    let authorized = locationManager?.isAuthorized ?? false
+                    let hasFix = locationManager?.currentCoordinate != nil
+
+                    if !authorized || !hasFix {
+                        logger.log("Falling back to demo navigation (authorized=\(authorized), hasFix=\(hasFix))")
+                        isDemoNavigation = true
+                        locationManager?.stopUpdating()
+                        locationManager = nil
+                        navModel.enableDemoMode()
+                    }
+                }
             }
         }
         .onDisappear {
             logger.log("NavigationView disappeared")
             locationManager?.stopUpdating()
             locationManager = nil
+            navModel.disableDemoMode()
+        }
+        .onReceive(locationUpdates) { user in
+            navModel.handleLocationUpdate(user)
+        }
+        .onChange(of: navModel.isAtLastStep) { isLast in
+            // MVP: when the user reaches the final step, proactively prompt to finish.
+            guard isLast else { return }
+            guard !didAutoPresentFinish else { return }
+            didAutoPresentFinish = true
+            finishWalk()
+        }
+        .sheet(isPresented: $showCamera) {
+            ImagePicker(sourceType: .camera) { image in
+                savePhoto(image: image)
+            }
+            .ignoresSafeArea()
+        }
+        .sheet(isPresented: $showFinishSheet) {
+            FinishWalkActionsSheetView(
+                route: route,
+                photoCount: photoService.photos(for: route.id).count,
+                onCreateCollage: {
+                    // Only open collage when photos exist (MVP requirement).
+                    showFinishSheet = false
+                    showCollageSheet = true
+                },
+                onCreateMuterVideo: {
+                    showFinishSheet = false
+                    showMuterVideoSheet = true
+                },
+                onShareRoute: {
+                    showFinishSheet = false
+                    showShareSheet = true
+                },
+                onDone: {
+                    showFinishSheet = false
+                    dismiss()
+                }
+            )
+        }
+        .sheet(isPresented: $showShareSheet) {
+            ShareSheetView(route: route)
+        }
+        .sheet(isPresented: $showCollageSheet) {
+            CollageEditorView(route: route)
+        }
+        .sheet(isPresented: $showMuterVideoSheet) {
+            MuterVideoPreviewView(route: route)
         }
     }
 
-    private func setupLocationManager() {
-        do {
-            locationManager = LocationManager()
-            logger.log("LocationManager initialized successfully")
-        } catch {
-            logger.error("Failed to initialize LocationManager: \(error.localizedDescription)")
-            mapError = error
-        }
-    }
+    // MARK: - UI
 
-    private func checkArrival() {
-        guard
-            let lm = locationManager,
-            let user = lm.currentCoordinate,
-            let landmark = currentLandmark
-        else { return }
-
-        let userLocation = CLLocation(latitude: user.latitude, longitude: user.longitude)
-        let targetLocation = CLLocation(
-            latitude: landmark.location.latitude,
-            longitude: landmark.location.longitude
-        )
-
-        let distance = userLocation.distance(from: targetLocation)
-        guard distance < 60 else { return }
-
-        withAnimation {
-            arrivedMessage = "Arrived at \(landmark.name)"
-        }
-
-        DispatchQueue.main.asyncAfter(deadline: .now() + 2.2) {
-            withAnimation { arrivedMessage = nil }
-        }
-
-        if currentStopIndex < route.landmarks.count - 1 {
-            currentStopIndex += 1
-        }
-    }
-
-    private func distanceText(to landmark: Landmark) -> String {
-        guard let lm = locationManager, let user = lm.currentCoordinate else { return "Locating..." }
-        let userLocation = CLLocation(latitude: user.latitude, longitude: user.longitude)
-        let target = CLLocation(latitude: landmark.location.latitude, longitude: landmark.location.longitude)
-        let meters = userLocation.distance(from: target)
-        let minutes = max(1, Int(meters / 75))
-        if meters < 1000 {
-            return "\(Int(meters))m ahead • ~\(minutes) min walk"
-        }
-        return String(format: "%.1f km ahead • ~%d min walk", meters / 1000, minutes)
-    }
-
-    private func directionHint(to landmark: Landmark) -> String {
-        guard let lm = locationManager, let user = lm.currentCoordinate else { return "Finding your position..." }
-
-        let latDelta = landmark.location.latitude - user.latitude
-        let lonDelta = landmark.location.longitude - user.longitude
-
-        if abs(latDelta) > abs(lonDelta) {
-            return latDelta > 0 ? "⬆️ Head north" : "⬇️ Head south"
-        } else {
-            return lonDelta > 0 ? "➡️ Head east" : "⬅️ Head west"
-        }
-    }
-}
-
-private struct NextLandmarkCard: View {
-    let landmark: Landmark
-    let routeColor: Color
-    let stopIndex: Int
-    let totalStops: Int
-    let distanceText: String
-    let directionHint: String
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack {
-                Text("Stop \(stopIndex) of \(totalStops)")
-                    .font(.caption.weight(.semibold))
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 5)
-                    .background(routeColor.opacity(0.15))
-                    .foregroundStyle(routeColor)
-                    .clipShape(Capsule())
-                Spacer()
-                Text(distanceText)
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(.secondary)
+    private var topControls: some View {
+        HStack(spacing: 10) {
+            Button {
+                showCamera = true
+            } label: {
+                Image(systemName: "camera")
+                    .font(.subheadline.weight(.semibold))
+                    .padding(10)
+                    .background(.ultraThinMaterial)
+                    .clipShape(Circle())
+                    .accessibilityLabel("Take photo")
             }
 
-            Text(landmark.name)
-                .font(.title3.weight(.bold))
+            Spacer()
 
-            Text(directionHint)
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-
-            Text(landmark.description)
-                .font(.footnote)
-                .foregroundStyle(.secondary)
-                .lineLimit(2)
+            Button {
+                logger.log("Exit button tapped - dismissing navigation view")
+                dismiss()
+            } label: {
+                Label("Exit", systemImage: "xmark")
+                    .font(.subheadline.weight(.semibold))
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 8)
+                    .background(.ultraThinMaterial)
+                    .clipShape(Capsule())
+            }
         }
-        .padding()
+        .padding(.horizontal)
+        .padding(.top, 8)
+    }
+
+    private var turnByTurnCard: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(alignment: .top) {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text(navModel.isAtLastStep ? "Arrived" : "Next")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.secondary)
+
+                    Text(navModel.isAtLastStep ? "Arrive at destination" : navModel.currentInstruction)
+                        .font(.title3.weight(.bold))
+                        .foregroundStyle(.primary)
+                        .lineLimit(3)
+                }
+
+                Spacer()
+
+                VStack(alignment: .trailing, spacing: 6) {
+                    Text("Step")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.secondary)
+
+                    Text(navModel.progressText)
+                        .font(.subheadline.weight(.semibold))
+                }
+            }
+
+            Divider()
+
+            VStack(alignment: .leading, spacing: 10) {
+                HStack {
+                    Label(distanceText, systemImage: "location.north.line")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(.secondary)
+
+                    Spacer()
+
+                    if !route.landmarks.isEmpty {
+                        Text("Stops: \(route.landmarks.count)")
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(.secondary)
+                    }
+                }
+
+                if navModel.isAtLastStep {
+                    Button {
+                        finishWalk()
+                    } label: {
+                        Text("Finish Walk")
+                            .font(.headline)
+                            .frame(maxWidth: .infinity)
+                            .padding()
+                            .background(route.routeColor.color)
+                            .foregroundStyle(.white)
+                            .clipShape(RoundedRectangle(cornerRadius: 14))
+                    }
+                } else {
+                    HStack {
+                        Button {
+                            finishWalk()
+                        } label: {
+                            Text("Finish Walk")
+                                .font(.subheadline.weight(.semibold))
+                                .padding(.horizontal, 12)
+                                .padding(.vertical, 8)
+                                .background(route.routeColor.color.opacity(0.18))
+                                .clipShape(Capsule())
+                        }
+
+                        Spacer()
+
+                        if navModel.isDemoMode {
+                            Button {
+                                navModel.advanceStepManually()
+                            } label: {
+                                Text("Next")
+                                    .font(.subheadline.weight(.semibold))
+                                    .padding(.horizontal, 12)
+                                    .padding(.vertical, 8)
+                                    .background(route.routeColor.color.opacity(0.18))
+                                    .clipShape(Capsule())
+                            }
+                        }
+                    }
+
+                    if navModel.isDemoMode {
+                        Text("Demo navigation")
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            }
+        }
+        .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(.regularMaterial)
         .clipShape(RoundedRectangle(cornerRadius: 18))
     }
+
+    private var offRouteBanner: some View {
+        HStack(spacing: 10) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text("You’re off route")
+                    .font(.subheadline.weight(.bold))
+
+                if let d = navModel.offRouteDistanceMeters {
+                    Text("~\(Int(d))m from the path")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+
+            Spacer()
+
+            Button {
+                guard let user = locationManager?.currentCoordinate else { return }
+                navModel.reroute(from: user)
+            } label: {
+                Text("Re-route")
+                    .font(.subheadline.weight(.semibold))
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 8)
+                    .background(route.routeColor.color.opacity(0.18))
+                    .clipShape(Capsule())
+            }
+            .disabled(!navModel.canRerouteNow())
+        }
+        .padding(12)
+        .background(.regularMaterial)
+        .clipShape(RoundedRectangle(cornerRadius: 14))
+    }
+
+    private var distanceText: String {
+        if navModel.isDemoMode { return "Demo" }
+        guard let meters = navModel.distanceToNextManeuverMeters else { return "Locating…" }
+        if meters < 1000 { return "\(Int(meters)) m" }
+        return String(format: "%.1f km", meters / 1000)
+    }
+
+    // MARK: - Actions
+
+    private func setupLocationManager() {
+        locationManager = LocationManager()
+        logger.log("LocationManager initialized successfully")
+    }
+
+    private func finishWalk() {
+        RouteCompletionStore.markCompleted(route.id)
+        showFinishSheet = true
+    }
+
+    private func savePhoto(image: UIImage) {
+        // Store location:
+        // - Prefer live GPS
+        // - Else snap to nearest point on polyline
+        // - Else step coordinate
+        let live = locationManager?.currentCoordinate
+        let snapped = live.flatMap { PolylineMath.nearestPoint(onPolyline: route.pathCoordinates, to: $0) }
+        let fallback = navModel.nextManeuverCoordinate
+        let finalLocation = live ?? snapped ?? fallback
+
+        _ = photoService.savePhoto(image: image, for: route.id, at: finalLocation)
+    }
 }
+
+// MARK: - Map View
 
 struct RouteMapViewRepresentable: UIViewRepresentable {
     let route: Route
@@ -208,13 +373,14 @@ struct RouteMapViewRepresentable: UIViewRepresentable {
     var followUser: Bool = false
     var userCoordinate: CLLocationCoordinate2D?
     var showsNumberedPins: Bool = false
+    var fitToRoute: Bool = false  // When true, fits map to show entire route + all landmarks
 
     private let logger = Logger(subsystem: "com.walkingroutes", category: "RouteMapView")
 
-    func makeCoordinator() -> Coordinator { Coordinator(routeColor: routeColor) }
+    func makeCoordinator() -> Coordinator { Coordinator(routeColor: routeColor, fitToRoute: fitToRoute) }
 
     func makeUIView(context: Context) -> MKMapView {
-        logger.log("Creating MKMapView")
+        logger.log("Creating MKMapView (fitToRoute: \(fitToRoute))")
         let mapView = MKMapView(frame: .zero)
         mapView.showsCompass = true
         mapView.showsScale = false
@@ -226,6 +392,7 @@ struct RouteMapViewRepresentable: UIViewRepresentable {
 
     func updateUIView(_ mapView: MKMapView, context: Context) {
         context.coordinator.routeColor = routeColor
+        context.coordinator.fitToRoute = fitToRoute
         mapView.showsUserLocation = showsUserLocation
 
         mapView.removeOverlays(mapView.overlays)
@@ -237,6 +404,7 @@ struct RouteMapViewRepresentable: UIViewRepresentable {
             return
         }
 
+        // Add numbered annotations for landmarks
         if showsNumberedPins {
             for (index, landmark) in route.landmarks.enumerated() {
                 let annotation = NumberedPointAnnotation()
@@ -248,27 +416,32 @@ struct RouteMapViewRepresentable: UIViewRepresentable {
             }
         }
 
+        // Calculate the bounding map rect that includes all landmarks
+        let landmarkRects = route.landmarks.map { landmark in
+            MKMapRect(origin: MKMapPoint(landmark.location.clLocation), size: MKMapSize(width: 0, height: 0))
+        }
+        let combinedRect = landmarkRects.reduce(MKMapRect.null) { $0.union($1) }
+        context.coordinator.landmarksBoundingRect = combinedRect
+
         context.coordinator.drawWalkingRoute(points: points, on: mapView)
 
         if followUser, let userCoordinate {
             mapView.setCenter(userCoordinate, animated: true)
-        } else if points.count >= 2 {
-            let fallback = MKPolyline(coordinates: points, count: points.count)
-            mapView.setVisibleMapRect(
-                fallback.boundingMapRect,
-                edgePadding: UIEdgeInsets(top: 60, left: 30, bottom: 60, right: 30),
-                animated: true
-            )
         }
+        // Note: Initial zoom/fit is handled in drawWalkingRoute completion
     }
 
     class Coordinator: NSObject, MKMapViewDelegate {
         var routeColor: RouteColor
+        var fitToRoute: Bool
+        var landmarksBoundingRect: MKMapRect = .null
         private var polylineCache: [String: MKPolyline] = [:]
+        private var allPolylines: [MKPolyline] = []
         private let logger = Logger(subsystem: "com.walkingroutes", category: "MapCoordinator")
 
-        init(routeColor: RouteColor) {
+        init(routeColor: RouteColor, fitToRoute: Bool) {
             self.routeColor = routeColor
+            self.fitToRoute = fitToRoute
         }
 
         func drawWalkingRoute(points: [CLLocationCoordinate2D], on mapView: MKMapView) {
@@ -277,6 +450,9 @@ struct RouteMapViewRepresentable: UIViewRepresentable {
                 return
             }
 
+            allPolylines.removeAll()
+            let group = DispatchGroup()
+
             for index in 0..<(points.count - 1) {
                 let start = points[index]
                 let end = points[index + 1]
@@ -284,9 +460,11 @@ struct RouteMapViewRepresentable: UIViewRepresentable {
 
                 if let cached = polylineCache[key] {
                     mapView.addOverlay(cached)
+                    allPolylines.append(cached)
                     continue
                 }
 
+                group.enter()
                 let request = MKDirections.Request()
                 request.source = MKMapItem(placemark: MKPlacemark(coordinate: start))
                 request.destination = MKMapItem(placemark: MKPlacemark(coordinate: end))
@@ -294,6 +472,7 @@ struct RouteMapViewRepresentable: UIViewRepresentable {
 
                 let directions = MKDirections(request: request)
                 directions.calculate { [weak self, weak mapView] response, error in
+                    defer { group.leave() }
                     guard
                         let self,
                         let mapView
@@ -301,6 +480,13 @@ struct RouteMapViewRepresentable: UIViewRepresentable {
 
                     if let error = error {
                         self.logger.error("Directions calculation failed: \(error.localizedDescription)")
+                        // Fallback: draw straight line
+                        let straightLine = MKPolyline(coordinates: [start, end], count: 2)
+                        self.polylineCache[key] = straightLine
+                        DispatchQueue.main.async {
+                            mapView.addOverlay(straightLine)
+                            self.allPolylines.append(straightLine)
+                        }
                         return
                     }
 
@@ -311,17 +497,55 @@ struct RouteMapViewRepresentable: UIViewRepresentable {
 
                     let polyline = route.polyline
                     self.polylineCache[key] = polyline
-                    mapView.addOverlay(polyline)
-
-                    if index == 0 {
-                        mapView.setVisibleMapRect(
-                            polyline.boundingMapRect,
-                            edgePadding: UIEdgeInsets(top: 60, left: 30, bottom: 60, right: 30),
-                            animated: true
-                        )
+                    DispatchQueue.main.async {
+                        mapView.addOverlay(polyline)
+                        self.allPolylines.append(polyline)
                     }
                 }
             }
+
+            // When all directions are calculated, fit the map to show everything
+            group.notify(queue: .main) { [weak self, weak mapView] in
+                guard let self, let mapView else { return }
+                self.fitMapToShowAll(mapView: mapView)
+            }
+        }
+
+        private func fitMapToShowAll(mapView: MKMapView) {
+            guard fitToRoute else { return }
+
+            // Combine all polyline bounding rects
+            let routeRect = allPolylines.reduce(MKMapRect.null) { $0.union($1.boundingMapRect) }
+
+            // Union with landmarks bounding rect
+            let totalRect = routeRect.union(landmarksBoundingRect)
+
+            guard !totalRect.isNull else {
+                logger.warning("Cannot fit map: totalRect is null")
+                return
+            }
+
+            // Add padding around the rect
+            let padding = UIEdgeInsets(top: 60, left: 40, bottom: 60, right: 40)
+
+            // Ensure minimum size for the rect (avoid zooming too far in for single points)
+            var adjustedRect = totalRect
+            let minSize: Double = 1000  // meters approximately
+            if adjustedRect.size.width < minSize || adjustedRect.size.height < minSize {
+                let center = MKMapPoint(x: adjustedRect.midX, y: adjustedRect.midY)
+                let newSize = max(minSize, adjustedRect.size.width, adjustedRect.size.height)
+                adjustedRect = MKMapRect(
+                    x: center.x - newSize / 2,
+                    y: center.y - newSize / 2,
+                    width: newSize,
+                    height: newSize
+                )
+            }
+
+            mapView.setVisibleMapRect(adjustedRect, edgePadding: padding, animated: true)
+            let segments = allPolylines.count
+            let landmarksDesc = landmarksBoundingRect.isNull ? "0" : "multiple"
+            logger.log("Fitted map to show route. Segments: \(segments). Landmarks: \(landmarksDesc).")
         }
 
         func mapView(_ mapView: MKMapView, rendererFor overlay: MKOverlay) -> MKOverlayRenderer {
@@ -354,11 +578,24 @@ final class NumberedPointAnnotation: MKPointAnnotation {
     var number: Int = 0
 }
 
+// MARK: - Location
+
 final class LocationManager: NSObject, ObservableObject, CLLocationManagerDelegate {
     private let manager = CLLocationManager()
+
     @Published var currentCoordinate: CLLocationCoordinate2D?
+    @Published var authorizationStatus: CLAuthorizationStatus = .notDetermined
 
     private let logger = Logger(subsystem: "com.walkingroutes", category: "LocationManager")
+
+    var isAuthorized: Bool {
+        switch authorizationStatus {
+        case .authorizedAlways, .authorizedWhenInUse:
+            return true
+        default:
+            return false
+        }
+    }
 
     override init() {
         super.init()
@@ -366,14 +603,7 @@ final class LocationManager: NSObject, ObservableObject, CLLocationManagerDelega
         manager.delegate = self
         manager.desiredAccuracy = kCLLocationAccuracyBest
 
-        let authorizationStatus: CLAuthorizationStatus
-        if #available(iOS 14.0, *) {
-            authorizationStatus = manager.authorizationStatus
-        } else {
-            authorizationStatus = CLLocationManager.authorizationStatus()
-        }
-
-        logger.log("Current authorization status: \(String(describing: authorizationStatus))")
+        refreshAuthorizationStatus()
 
         switch authorizationStatus {
         case .notDetermined:
@@ -387,6 +617,22 @@ final class LocationManager: NSObject, ObservableObject, CLLocationManagerDelega
         @unknown default:
             logger.warning("Unknown authorization status")
         }
+    }
+
+    func requestAuthorizationIfNeeded() {
+        refreshAuthorizationStatus()
+        if authorizationStatus == .notDetermined {
+            manager.requestWhenInUseAuthorization()
+        }
+    }
+
+    private func refreshAuthorizationStatus() {
+        if #available(iOS 14.0, *) {
+            authorizationStatus = manager.authorizationStatus
+        } else {
+            authorizationStatus = CLLocationManager.authorizationStatus()
+        }
+        logger.log("Current authorization status: \(String(describing: self.authorizationStatus))")
     }
 
     func stopUpdating() {
@@ -406,6 +652,7 @@ final class LocationManager: NSObject, ObservableObject, CLLocationManagerDelega
 
     @available(iOS 14.0, *)
     func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
+        authorizationStatus = manager.authorizationStatus
         logger.log("Authorization changed to: \(String(describing: manager.authorizationStatus))")
         switch manager.authorizationStatus {
         case .authorizedWhenInUse, .authorizedAlways:
@@ -420,6 +667,66 @@ final class LocationManager: NSObject, ObservableObject, CLLocationManagerDelega
     }
 }
 
+// MARK: - UIImagePickerController bridge
+
+private struct ImagePicker: UIViewControllerRepresentable {
+    let sourceType: UIImagePickerController.SourceType
+    let onImagePicked: (UIImage) -> Void
+
+    @Environment(\.dismiss) private var dismiss
+
+    func makeCoordinator() -> Coordinator { Coordinator(parent: self) }
+
+    func makeUIViewController(context: Context) -> UIImagePickerController {
+        let picker = UIImagePickerController()
+        picker.sourceType = sourceType
+        picker.allowsEditing = false
+        picker.delegate = context.coordinator
+        return picker
+    }
+
+    func updateUIViewController(_ uiViewController: UIImagePickerController, context: Context) {}
+
+    final class Coordinator: NSObject, UINavigationControllerDelegate, UIImagePickerControllerDelegate {
+        let parent: ImagePicker
+
+        init(parent: ImagePicker) {
+            self.parent = parent
+        }
+
+        func imagePickerController(_ picker: UIImagePickerController, didFinishPickingMediaWithInfo info: [UIImagePickerController.InfoKey : Any]) {
+            if let image = info[.originalImage] as? UIImage {
+                parent.onImagePicked(image)
+            }
+            parent.dismiss()
+        }
+
+        func imagePickerControllerDidCancel(_ picker: UIImagePickerController) {
+            parent.dismiss()
+        }
+    }
+}
+
 #Preview {
-    RouteNavigationView(route: SampleData.routes[0], useLocation: false)
+    let previewRoute = Route(
+        id: UUID(),
+        name: "Preview Loop",
+        description: "A simple loop route used for previews.",
+        duration: 60,
+        distance: 4.8,
+        difficulty: .easy,
+        category: .highlights,
+        landmarks: Array(PointsOfInterest.all.prefix(2)),
+        coordinates: [
+            Location(latitude: 52.3780, longitude: 4.9006),
+            Location(latitude: 52.3810, longitude: 4.9100),
+            Location(latitude: 52.3720, longitude: 4.9150),
+            Location(latitude: 52.3780, longitude: 4.9006)
+        ],
+        navigationSteps: nil,
+        imageURL: nil,
+        city: nil
+    )
+
+    return RouteNavigationView(route: previewRoute, useLocation: false)
 }

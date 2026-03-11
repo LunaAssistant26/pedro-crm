@@ -1,4 +1,4 @@
-import SwiftUI
+import Foundation
 
 /// Lightweight feature flags / toggles backed by UserDefaults.
 ///
@@ -13,15 +13,3 @@ enum AppFlags {
         UserDefaults.standard.bool(forKey: useRealGPSNavigationKey)
     }
 }
-
-@main
-struct WalkingRoutesApp: App {
-    var body: some Scene {
-        WindowGroup {
-            // CaptureRootView lives in Views/CaptureViews.swift
-            CaptureRootView()
-                .preferredColorScheme(.light)
-        }
-    }
-}
-

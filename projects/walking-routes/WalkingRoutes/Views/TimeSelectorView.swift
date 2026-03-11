@@ -14,11 +14,12 @@ struct TimeSelectorView: View {
         VStack(alignment: .leading, spacing: 14) {
             Text("How much time do you have?")
                 .font(.headline)
+                .foregroundStyle(AppTheme.primaryText)
 
             HStack {
                 Text("\(selectedTime) min")
                     .font(.title3.weight(.semibold))
-                    .foregroundStyle(.primary)
+                    .foregroundStyle(AppTheme.primaryText)
 
                 Spacer()
 
@@ -42,7 +43,7 @@ struct TimeSelectorView: View {
                 Text("180 min")
             }
             .font(.caption)
-            .foregroundStyle(.secondary)
+            .foregroundStyle(AppTheme.secondaryText)
         }
     }
 }
