@@ -45,7 +45,7 @@ actor RouteGenerationService {
     }
 
     /// Generate up to 3 loop route options from `start` for the given `minutes` budget.
-    func generateLoopRoutes(start: CLLocationCoordinate2D, minutes: Int, toleranceMinutes: Int = 15) async throws -> [Route] {
+    func generateLoopRoutes(start: CLLocationCoordinate2D, minutes: Int, toleranceMinutes: Int = 10) async throws -> [Route] {
         if Task.isCancelled { throw CancellationError() }
 
         let key = cacheKey(for: start, minutes: minutes)

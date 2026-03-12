@@ -12,7 +12,7 @@ struct RouteNavigationView: View {
 
     @Environment(\.dismiss) private var dismiss
 
-    @State private var locationManager: LocationManager?
+    @StateObject private var locationManager = LocationManager()
     @StateObject private var photoService = PhotoService.shared
     @StateObject private var navModel: RouteNavigationViewModel
 
@@ -37,12 +37,9 @@ struct RouteNavigationView: View {
 
     private var locationUpdates: AnyPublisher<CLLocationCoordinate2D, Never> {
         guard effectiveUseLocation else { return Empty().eraseToAnyPublisher() }
-        if let locationManager {
-            return locationManager.$currentCoordinate
-                .compactMap { $0 }
-                .eraseToAnyPublisher()
-        }
-        return Empty().eraseToAnyPublisher()
+        return locationManager.$currentCoordinate
+            .compactMap { $0 }
+            .eraseToAnyPublisher()
     }
 
     var body: some View {
@@ -51,7 +48,7 @@ struct RouteNavigationView: View {
             routeColor: route.routeColor,
             showsUserLocation: effectiveUseLocation,
             followUser: effectiveUseLocation,
-            userCoordinate: effectiveUseLocation ? locationManager?.currentCoordinate : nil,
+            userCoordinate: effectiveUseLocation ? locationManager.currentCoordinate : nil,
             showsNumberedPins: true,
             fitToRoute: false
         )
@@ -89,16 +86,15 @@ struct RouteNavigationView: View {
             // Default behaviour: demo navigation (no GPS, no permission prompt).
             isDemoNavigation = !useLocation
             if isDemoNavigation {
+                locationManager.stopUpdating()
                 navModel.enableDemoMode()
-            } else {
-                setupLocationManager()
-                // Only fall back to demo if location permission is denied (not just waiting for fix).
-                // User can manually enable demo via UI if they want to preview without walking.
             }
+            // LocationManager is always initialized (@StateObject). Updates start automatically
+            // if authorized. No fallback to demo — real GPS is used if permission is granted.
         }
         .onDisappear {
             logger.log("NavigationView disappeared")
-            locationManager?.stopUpdating()
+            locationManager.stopUpdating()
             locationManager = nil
             navModel.disableDemoMode()
         }
@@ -173,11 +169,10 @@ struct RouteNavigationView: View {
             Button {
                 isDemoNavigation.toggle()
                 if isDemoNavigation {
-                    locationManager?.stopUpdating()
+                    locationManager.stopUpdating()
                     navModel.enableDemoMode()
                     logger.log("Switched to demo navigation")
                 } else {
-                    setupLocationManager()
                     navModel.disableDemoMode()
                     logger.log("Switched to real GPS navigation")
                 }
@@ -320,7 +315,7 @@ struct RouteNavigationView: View {
             Spacer()
 
             Button {
-                guard let user = locationManager?.currentCoordinate else { return }
+                guard let user = locationManager.currentCoordinate else { return }
                 navModel.reroute(from: user)
             } label: {
                 Text("Re-route")
@@ -361,7 +356,7 @@ struct RouteNavigationView: View {
         // - Prefer live GPS
         // - Else snap to nearest point on polyline
         // - Else step coordinate
-        let live = locationManager?.currentCoordinate
+        let live = locationManager.currentCoordinate
         let snapped = live.flatMap { PolylineMath.nearestPoint(onPolyline: route.pathCoordinates, to: $0) }
         let fallback = navModel.nextManeuverCoordinate
         let finalLocation = live ?? snapped ?? fallback
