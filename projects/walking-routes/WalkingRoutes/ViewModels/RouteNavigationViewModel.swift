@@ -55,6 +55,17 @@ final class RouteNavigationViewModel: ObservableObject {
 
     func loadStepsIfNeeded() {
         guard steps.isEmpty else { return }
+
+        // Use steps already embedded in the route (captured during generation) — avoids
+        // burning MKDirections quota on navigation when we already have all the steps we need.
+        if let persisted = route.navigationSteps, !persisted.isEmpty {
+            steps = persisted
+            currentStepIndex = 0
+            if isDemoMode { startDemoAutoAdvanceIfPossible() }
+            return
+        }
+
+        // Fallback: compute via NavigationDirectionsService (only if route has no persisted steps).
         Task {
             do {
                 let computed = try await NavigationDirectionsService.shared.steps(for: route)
