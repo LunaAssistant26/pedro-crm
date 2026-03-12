@@ -416,42 +416,47 @@ struct RouteMapViewRepresentable: UIViewRepresentable {
         context.coordinator.fitToRoute = fitToRoute
         mapView.showsUserLocation = showsUserLocation
 
-        mapView.removeOverlays(mapView.overlays)
-        mapView.removeAnnotations(mapView.annotations.filter { !($0 is MKUserLocation) })
+        let routeChanged = context.coordinator.hasRouteChanged(to: route.id)
 
-        let points = route.pathCoordinates
-        guard !points.isEmpty else {
-            logger.warning("No path coordinates available for route: \(route.name)")
-            return
-        }
+        if routeChanged {
+            mapView.removeOverlays(mapView.overlays)
+            mapView.removeAnnotations(mapView.annotations.filter { !($0 is MKUserLocation) })
+            context.coordinator.markRouteDrawn(route.id)
 
-        // Add numbered annotations for landmarks
-        if showsNumberedPins {
-            for (index, landmark) in route.landmarks.enumerated() {
-                let annotation = NumberedPointAnnotation()
-                annotation.number = index + 1
-                annotation.title = landmark.name
-                annotation.subtitle = landmark.description
-                annotation.coordinate = landmark.location.clLocation
-                mapView.addAnnotation(annotation)
+            let points = route.pathCoordinates
+            guard !points.isEmpty else {
+                logger.warning("No path coordinates available for route: \(route.name)")
+                return
             }
-        }
 
-        // Calculate the bounding map rect that includes all landmarks
-        let landmarkRects = route.landmarks.map { landmark in
-            MKMapRect(origin: MKMapPoint(landmark.location.clLocation), size: MKMapSize(width: 0, height: 0))
-        }
-        let combinedRect = landmarkRects.reduce(MKMapRect.null) { $0.union($1) }
-        context.coordinator.landmarksBoundingRect = combinedRect
+            // Add numbered annotations for landmarks
+            if showsNumberedPins {
+                for (index, landmark) in route.landmarks.enumerated() {
+                    let annotation = NumberedPointAnnotation()
+                    annotation.number = index + 1
+                    annotation.title = landmark.name
+                    annotation.subtitle = landmark.description
+                    annotation.coordinate = landmark.location.clLocation
+                    mapView.addAnnotation(annotation)
+                }
+            }
 
-        context.coordinator.drawWalkingRoute(points: points, on: mapView)
+            // Calculate the bounding map rect that includes all landmarks
+            let landmarkRects = route.landmarks.map { landmark in
+                MKMapRect(origin: MKMapPoint(landmark.location.clLocation), size: MKMapSize(width: 0, height: 0))
+            }
+            let combinedRect = landmarkRects.reduce(MKMapRect.null) { $0.union($1) }
+            context.coordinator.landmarksBoundingRect = combinedRect
+
+            context.coordinator.drawWalkingRoute(points: points, on: mapView)
+        }
 
         if followUser, let userCoordinate {
             // Street-level zoom: ~500m span
             let span = MKCoordinateSpan(latitudeDelta: 0.005, longitudeDelta: 0.005)
             let region = MKCoordinateRegion(center: userCoordinate, span: span)
             mapView.setRegion(region, animated: true)
-        } else if !fitToRoute, let firstPoint = points.first {
+        } else if !fitToRoute, routeChanged, let firstPoint = route.pathCoordinates.first {
             // No user location yet: zoom to route start with street-level span
             let span = MKCoordinateSpan(latitudeDelta: 0.01, longitudeDelta: 0.01)
             let region = MKCoordinateRegion(center: firstPoint, span: span)
@@ -463,6 +468,7 @@ struct RouteMapViewRepresentable: UIViewRepresentable {
         var routeColor: RouteColor
         var fitToRoute: Bool
         var landmarksBoundingRect: MKMapRect = .null
+        private var drawnRouteId: UUID?
         private var polylineCache: [String: MKPolyline] = [:]
         private var allPolylines: [MKPolyline] = []
         private let logger = Logger(subsystem: "com.walkingroutes", category: "MapCoordinator")
@@ -470,6 +476,14 @@ struct RouteMapViewRepresentable: UIViewRepresentable {
         init(routeColor: RouteColor, fitToRoute: Bool) {
             self.routeColor = routeColor
             self.fitToRoute = fitToRoute
+        }
+
+        func hasRouteChanged(to routeId: UUID) -> Bool {
+            drawnRouteId != routeId
+        }
+
+        func markRouteDrawn(_ routeId: UUID) {
+            drawnRouteId = routeId
         }
 
         func drawWalkingRoute(points: [CLLocationCoordinate2D], on mapView: MKMapView) {

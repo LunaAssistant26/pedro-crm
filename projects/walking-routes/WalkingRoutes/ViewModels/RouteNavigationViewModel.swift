@@ -17,7 +17,7 @@ final class RouteNavigationViewModel: ObservableObject {
     private let route: Route
     private let offRouteThresholdMeters: CLLocationDistance = 60
     private let offRouteHoldSeconds: TimeInterval = 6
-    private let stepAdvanceThresholdMeters: CLLocationDistance = 25
+    private let stepAdvanceThresholdMeters: CLLocationDistance = 35
     private let rerouteCooldownSeconds: TimeInterval = 60
 
     private var offRouteSince: Date?
@@ -66,9 +66,13 @@ final class RouteNavigationViewModel: ObservableObject {
                     }
                 }
             } catch {
-                // Keep UI usable even if directions are temporarily unavailable.
+                // If NavigationDirectionsService fails (e.g., throttled), use persisted steps from route.
+                let fallback = route.navigationSteps ?? []
                 await MainActor.run {
-                    self.steps = []
+                    self.steps = fallback
+                    if self.isDemoMode && !fallback.isEmpty {
+                        self.startDemoAutoAdvanceIfPossible()
+                    }
                 }
             }
         }
