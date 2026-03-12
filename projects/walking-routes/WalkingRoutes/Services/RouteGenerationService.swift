@@ -253,8 +253,10 @@ actor RouteGenerationService {
                         let ns = error as NSError
                         if ns.domain == "GEOErrorDomain" && ns.code == -3 {
                             var wait: Double = 32
-                            if let details = ns.userInfo["details"] as? [String: Any],
-                               let reset = details["timeUntilReset"] as? Double {
+                            // NSDictionary doesn't bridge cleanly to [String:Any] — cast via NSDictionary.
+                            let rawDetails = ns.userInfo["details"]
+                            let details = (rawDetails as? NSDictionary) ?? (rawDetails as? [AnyHashable: Any]).map { NSDictionary(dictionary: $0) }
+                            if let reset = (details?["timeUntilReset"] as? NSNumber)?.doubleValue {
                                 wait = reset
                             }
                             continuation.resume(throwing: ThrottleError(waitSeconds: wait))
