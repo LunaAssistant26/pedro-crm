@@ -132,6 +132,17 @@ final class RouteViewModel: ObservableObject {
                 // Do NOT call cancelInFlightRequests() here — generateRoutes() already fires that
                 // as a separate task, and calling it again here races with the new generation's requests.
                 self.logger.debug("Route generation cancelled")
+            } catch let throttle as RouteGenerationService.ThrottleError {
+                let waitSecs = Int(ceil(throttle.waitSeconds)) + 2
+
+                await MainActor.run {
+                    self.isLoading = false
+                    self.errorMessage = "⏳ Rate limited by Apple Maps. Auto-retrying in \(waitSecs)s…"
+                }
+
+                try? await Task.sleep(nanoseconds: UInt64(Double(waitSecs) * 1_000_000_000))
+                guard !Task.isCancelled else { return }
+                await self.performGeneration(start: start, minutes: minutes)
             } catch {
                 await MainActor.run {
                     self.isLoading = false

@@ -23,7 +23,7 @@ actor RouteGenerationService {
         var errorDescription: String? { "Directions are currently unavailable." }
     }
 
-    private struct ThrottleError: Error {
+    struct ThrottleError: Error {
         let waitSeconds: Double
     }
 
@@ -158,11 +158,17 @@ actor RouteGenerationService {
 
             // If throttled, wait for Apple's rate limit reset, then retry.
             if throttleWait > 0 {
+                if attempt >= maxAttempts {
+                    // All retries exhausted and still throttled — bubble up for UI handling.
+                    throw ThrottleError(waitSeconds: throttleWait)
+                }
+
                 let waitNs = UInt64((throttleWait + 2.0) * 1_000_000_000)
                 logger.log("Waiting \(Int(throttleWait + 2))s for rate limit reset…")
                 try await Task.sleep(nanoseconds: waitNs)
                 // Reset radius (start fresh after throttle, preserving learned terrain factor).
                 radiusMeters = baseRadiusMeters
+                throttleWait = 0
                 continue
             }
 

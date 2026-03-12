@@ -71,10 +71,20 @@ struct ContentView: View {
                     }
 
                     if let error = viewModel.errorMessage, viewModel.routes.isEmpty {
-                        Text(error)
-                            .font(.subheadline)
-                            .foregroundStyle(.red)
-                            .padding(.vertical, 4)
+                        VStack(spacing: 8) {
+                            Text(error)
+                                .font(.subheadline)
+                                .foregroundStyle(.red)
+                                .multilineTextAlignment(.center)
+
+                            if !error.hasPrefix("⏳") {
+                                Button("Retry") {
+                                    regenerate()
+                                }
+                                .buttonStyle(.bordered)
+                            }
+                        }
+                        .padding(.horizontal)
                     }
 
                     if viewModel.usingDemoLocation {
