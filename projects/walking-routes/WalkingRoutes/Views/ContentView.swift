@@ -20,7 +20,7 @@ struct ContentView: View {
     @State private var selectedTime: Int
     @State private var showFeedback = false
     @AppStorage("forceDemoLocation") private var forceDemoLocation: Bool = true
-    @AppStorage("lockTimeTo60") private var lockTimeTo60: Bool = true
+
 
     var useLocation: Bool = true
 
@@ -54,17 +54,9 @@ struct ContentView: View {
                     }
 
                     TimeSelectorView(selectedTime: $selectedTime)
-                        .disabled(lockTimeTo60)
                         .onChange(of: selectedTime) { _ in
-                            guard !lockTimeTo60 else { return }
                             regenerate()
                         }
-
-                    if lockTimeTo60 {
-                        Text("Demo: time locked to 60 min")
-                            .font(.caption)
-                            .foregroundStyle(AppTheme.secondaryText)
-                    }
 
                     if viewModel.isLoading {
                         HStack(spacing: 12) {
@@ -129,7 +121,6 @@ struct ContentView: View {
             }
         }
         .onAppear {
-            if lockTimeTo60 { selectedTime = 60 }
             regenerate()
         }
         .onReceive(locationManager.$currentCoordinate) { _ in
