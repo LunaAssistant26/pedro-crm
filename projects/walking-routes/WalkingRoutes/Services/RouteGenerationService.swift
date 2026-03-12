@@ -6,7 +6,8 @@ import os.log
 /// Generates loop-only walking routes (start == end) around a given coordinate for a time budget.
 ///
 /// Notes (throttle-safe):
-/// - Hard-bounds MKDirections requests to <= 12 per generation (4 candidates * 3 legs).
+/// - Hard-bounds MKDirections requests to <= 12 per generation attempt (4 candidates * 3 legs).
+/// - Iterative radius calibration: up to 2 retries if MKDirections times are way off target.
 /// - Deterministic candidates (no random expansion) + no heavy task-group concurrency.
 /// - Short-lived cache (30s) to avoid repeated calls for identical inputs.
 /// - Supports cancellation by calling `MKDirections.cancel()` for in-flight requests.
@@ -31,7 +32,6 @@ actor RouteGenerationService {
     private var cache: [CacheKey: CacheEntry] = [:]
     private var inFlight: [UUID: MKDirections] = [:]
 
-    private let walkingSpeedMetersPerSecond: CLLocationDistance = 4.8 * 1000.0 / 3600.0
     private let cacheTTL: TimeInterval = 30
 
     func cancelInFlightRequests() {
@@ -53,11 +53,14 @@ actor RouteGenerationService {
 
         let targetSeconds = TimeInterval(minutes * 60)
         let toleranceSeconds = TimeInterval(toleranceMinutes * 60)
+
+        // walkingSpeedMetersPerSecond seeds the initial radius estimate ONLY.
+        // MKDirections expectedTravelTime is the source of truth for route duration.
+        let walkingSpeedMetersPerSecond: CLLocationDistance = 4.8 * 1000.0 / 3600.0
         let distanceBudgetMeters = walkingSpeedMetersPerSecond * targetSeconds
-
-        let radiusMeters = max(220, distanceBudgetMeters * 0.32)
-
-        logger.log("Generating loops. minutes=\(minutes), budget=\(Int(distanceBudgetMeters))m, radius=\(Int(radiusMeters))m")
+        // Start conservative (0.20) — real walking routes are 1.4–1.8x straight-line due to
+        // bridges, pedestrian paths, and canals. Iterative calibration adjusts below.
+        var radiusMeters = max(220, distanceBudgetMeters * 0.20)
 
         struct Candidate: Sendable {
             let id: String
@@ -72,30 +75,60 @@ actor RouteGenerationService {
             (135, 255)
         ]
 
-        let candidates: [Candidate] = bearingPairs.enumerated().map { idx, pair in
-            let (b1, b2) = pair
-            return Candidate(
-                id: "c\(idx)",
-                wp1: startLocation.coordinate(atDistanceMeters: radiusMeters, bearingDegrees: b1),
-                wp2: startLocation.coordinate(atDistanceMeters: radiusMeters, bearingDegrees: b2)
-            )
-        }
-
         var loops: [LoopResult] = []
-        loops.reserveCapacity(candidates.count)
+        let maxRetries = 2
+        var attempt = 0
 
-        for c in candidates {
+        repeat {
             if Task.isCancelled { throw CancellationError() }
-            do {
-                let loop = try await buildLoop(start: start, wp1: c.wp1, wp2: c.wp2)
-                loops.append(loop)
-            } catch is CancellationError {
-                throw CancellationError()
-            } catch {
-                logger.debug("Candidate \(c.id) failed: \(error.localizedDescription)")
-                continue
+
+            let candidates: [Candidate] = bearingPairs.enumerated().map { idx, pair in
+                let (b1, b2) = pair
+                return Candidate(
+                    id: "c\(idx)",
+                    wp1: startLocation.coordinate(atDistanceMeters: radiusMeters, bearingDegrees: b1),
+                    wp2: startLocation.coordinate(atDistanceMeters: radiusMeters, bearingDegrees: b2)
+                )
             }
-        }
+
+            logger.log("Attempt \(attempt + 1): minutes=\(minutes), budget=\(Int(distanceBudgetMeters))m, radius=\(Int(radiusMeters))m")
+
+            loops = []
+            loops.reserveCapacity(candidates.count)
+
+            for c in candidates {
+                if Task.isCancelled { throw CancellationError() }
+                do {
+                    let loop = try await buildLoop(start: start, wp1: c.wp1, wp2: c.wp2)
+                    loops.append(loop)
+                } catch is CancellationError {
+                    throw CancellationError()
+                } catch {
+                    logger.debug("Candidate \(c.id) failed: \(error.localizedDescription)")
+                    continue
+                }
+            }
+
+            attempt += 1
+
+            // Stop if no results or we've exhausted retries.
+            guard !loops.isEmpty, attempt <= maxRetries else { break }
+
+            // Calibrate: check if all candidates are way off target.
+            // Use median to be robust against outliers.
+            let sortedTimes = loops.map { $0.expectedTravelTime }.sorted()
+            let medianTime = sortedTimes[sortedTimes.count / 2]
+
+            if loops.allSatisfy({ $0.expectedTravelTime < targetSeconds * 0.70 }) {
+                radiusMeters *= 1.3
+                logger.log("Calibration: median \(Int(medianTime / 60))min < 70% target, scaling radius up to \(Int(radiusMeters))m")
+            } else if loops.allSatisfy({ $0.expectedTravelTime > targetSeconds * 1.30 }) {
+                radiusMeters *= 0.75
+                logger.log("Calibration: median \(Int(medianTime / 60))min > 130% target, scaling radius down to \(Int(radiusMeters))m")
+            } else {
+                break // radius is calibrated well enough
+            }
+        } while attempt <= maxRetries
 
         if loops.isEmpty { throw DirectionsUnavailableError() }
 
@@ -107,6 +140,7 @@ actor RouteGenerationService {
 
         let routes: [Route] = picked.enumerated().map { index, loop in
             let distanceKm = loop.distanceMeters / 1000.0
+            // Use MKDirections expectedTravelTime as source of truth for duration.
             let durationMin = Int(round(loop.expectedTravelTime / 60.0))
 
             return Route(
@@ -126,7 +160,7 @@ actor RouteGenerationService {
         }
 
         cache[key] = CacheEntry(createdAt: Date(), routes: routes)
-        logger.log("Generated \(routes.count) routes (directionsRequests<=\(candidates.count * 3))")
+        logger.log("Generated \(routes.count) routes after \(attempt) attempt(s)")
         return routes
     }
 
