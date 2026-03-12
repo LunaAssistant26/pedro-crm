@@ -43,6 +43,11 @@ actor RouteGenerationService {
 
     private let cacheTTL: TimeInterval = 10
 
+    init() {
+        terrainFactorsByGrid = UserDefaults.standard.dictionary(forKey: "terrainFactors") as? [String: Double] ?? [:]
+        terrainFactorOrder = Array(terrainFactorsByGrid.keys)
+    }
+
     func cancelInFlightRequests() {
         for (_, d) in inFlight { d.cancel() }
         inFlight.removeAll()
@@ -63,7 +68,7 @@ actor RouteGenerationService {
         let toleranceSeconds = TimeInterval(toleranceMinutes * 60)
 
         // Seeds the initial radius only. MKDirections expectedTravelTime is source of truth.
-        let seedSpeed: CLLocationDistance = 4.8 * 1000.0 / 3600.0
+        let seedSpeed: CLLocationDistance = 4.0 * 1000.0 / 3600.0
         let distanceBudgetMeters = seedSpeed * targetSeconds
 
         // Calibrated for 4-leg geometry on straight roads (factor ~1.2×):
@@ -99,10 +104,10 @@ actor RouteGenerationService {
             let bearingC_wp2 = startLocation.coordinate(atDistanceMeters: radius, bearingDegrees: 360)
 
             let startCL = CLLocation(latitude: start.latitude, longitude: start.longitude)
-            let maxLandmarkDistance = radius * 2.0
             let landmarksWithinRange = nearbyLandmarks.filter {
                 let landmarkCL = CLLocation(latitude: $0.location.latitude, longitude: $0.location.longitude)
-                return landmarkCL.distance(from: startCL) <= maxLandmarkDistance
+                let dist = landmarkCL.distance(from: startCL)
+                return dist >= radius * 0.3 && dist <= radius * 2.0
             }
 
             // If landmark data is not local enough, fall back to bearing-based waypoints for all candidates.
@@ -272,6 +277,8 @@ actor RouteGenerationService {
             let oldestKey = terrainFactorOrder.removeFirst()
             terrainFactorsByGrid.removeValue(forKey: oldestKey)
         }
+
+        UserDefaults.standard.set(terrainFactorsByGrid, forKey: "terrainFactors")
     }
 
     /// Build a 3-leg triangle loop: start → wp1 → wp2 → start.

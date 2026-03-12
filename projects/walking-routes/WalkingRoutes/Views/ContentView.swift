@@ -126,6 +126,13 @@ struct ContentView: View {
             if forceDemoLocation || locationManager.currentCoordinate != nil {
                 regenerate()
             }
+
+            // Fallback: if GPS fix arrives but routes still empty after delay.
+            DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
+                if viewModel.routes.isEmpty && !viewModel.isLoading {
+                    regenerate()
+                }
+            }
         }
         .onReceive(locationManager.$currentCoordinate) { newCoord in
             // Only regenerate on live GPS when we're not forcing demo location.
@@ -150,7 +157,7 @@ struct ContentView: View {
 
     private func regenerate() {
         logger.log("Regenerating routes. minutes=\(selectedTime)")
-        let authorized = useLocation ? locationManager.isAuthorized : false
+        let authorized = useLocation ? (locationManager.isAuthorized || locationManager.currentCoordinate != nil) : false
         let coordinate = useLocation ? locationManager.currentCoordinate : nil
         viewModel.generateRoutes(timeMinutes: selectedTime, userCoordinate: coordinate, locationAuthorized: authorized)
     }
