@@ -92,23 +92,8 @@ struct RouteNavigationView: View {
                 navModel.enableDemoMode()
             } else {
                 setupLocationManager()
-
-                // If location isn't authorized or we don't get a fix quickly, fall back to demo.
-                DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
-                    guard useLocation else { return }
-                    guard !isDemoNavigation else { return }
-
-                    let authorized = locationManager?.isAuthorized ?? false
-                    let hasFix = locationManager?.currentCoordinate != nil
-
-                    if !authorized || !hasFix {
-                        logger.log("Falling back to demo navigation (authorized=\(authorized), hasFix=\(hasFix))")
-                        isDemoNavigation = true
-                        locationManager?.stopUpdating()
-                        locationManager = nil
-                        navModel.enableDemoMode()
-                    }
-                }
+                // Only fall back to demo if location permission is denied (not just waiting for fix).
+                // User can manually enable demo via UI if they want to preview without walking.
             }
         }
         .onDisappear {
@@ -183,6 +168,27 @@ struct RouteNavigationView: View {
             }
 
             Spacer()
+
+            // Toggle demo mode
+            Button {
+                isDemoNavigation.toggle()
+                if isDemoNavigation {
+                    locationManager?.stopUpdating()
+                    navModel.enableDemoMode()
+                    logger.log("Switched to demo navigation")
+                } else {
+                    setupLocationManager()
+                    navModel.disableDemoMode()
+                    logger.log("Switched to real GPS navigation")
+                }
+            } label: {
+                Text(isDemoNavigation ? "GPS" : "Demo")
+                    .font(.subheadline.weight(.semibold))
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 8)
+                    .background(isDemoNavigation ? .green.opacity(0.2) : .orange.opacity(0.2))
+                    .clipShape(Capsule())
+            }
 
             Button {
                 logger.log("Exit button tapped - dismissing navigation view")
@@ -426,9 +432,16 @@ struct RouteMapViewRepresentable: UIViewRepresentable {
         context.coordinator.drawWalkingRoute(points: points, on: mapView)
 
         if followUser, let userCoordinate {
-            mapView.setCenter(userCoordinate, animated: true)
+            // Street-level zoom: ~500m span
+            let span = MKCoordinateSpan(latitudeDelta: 0.005, longitudeDelta: 0.005)
+            let region = MKCoordinateRegion(center: userCoordinate, span: span)
+            mapView.setRegion(region, animated: true)
+        } else if !fitToRoute, let firstPoint = points.first {
+            // No user location yet: zoom to route start with street-level span
+            let span = MKCoordinateSpan(latitudeDelta: 0.01, longitudeDelta: 0.01)
+            let region = MKCoordinateRegion(center: firstPoint, span: span)
+            mapView.setRegion(region, animated: false)
         }
-        // Note: Initial zoom/fit is handled in drawWalkingRoute completion
     }
 
     class Coordinator: NSObject, MKMapViewDelegate {
