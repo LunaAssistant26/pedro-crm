@@ -231,9 +231,7 @@ struct RouteNavigationView: View {
 
             VStack(alignment: .leading, spacing: 10) {
                 HStack {
-                    Label(distanceText, systemImage: "location.north.line")
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(.secondary)
+                    distanceStatusView
 
                     Spacer()
 
@@ -332,9 +330,36 @@ struct RouteNavigationView: View {
         .clipShape(RoundedRectangle(cornerRadius: 14))
     }
 
-    private var distanceText: String {
-        if navModel.isDemoMode { return "Demo" }
-        guard let meters = navModel.distanceToNextManeuverMeters else { return "Locating…" }
+    @ViewBuilder
+    private var distanceStatusView: some View {
+        if navModel.isDemoMode {
+            Label("Demo", systemImage: "location.north.line")
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(.secondary)
+        } else if let meters = navModel.distanceToNextManeuverMeters {
+            Label(distanceText(for: meters), systemImage: "location.north.line")
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(.secondary)
+        } else {
+            HStack(spacing: 8) {
+                ProgressView()
+                    .controlSize(.small)
+                Text(firstStepInstruction)
+                    .lineLimit(1)
+            }
+            .font(.subheadline.weight(.semibold))
+            .foregroundStyle(.secondary)
+        }
+    }
+
+    private var firstStepInstruction: String {
+        if let first = route.navigationSteps?.first?.instruction, !first.isEmpty {
+            return first
+        }
+        return navModel.currentInstruction
+    }
+
+    private func distanceText(for meters: CLLocationDistance) -> String {
         if meters < 1000 { return "\(Int(meters)) m" }
         return String(format: "%.1f km", meters / 1000)
     }

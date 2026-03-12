@@ -37,6 +37,10 @@ actor RouteGenerationService {
     private var cache: [CacheKey: CacheEntry] = [:]
     private var inFlight: [UUID: MKDirections] = [:]
 
+    // Terrain calibration memory by ~10km grid (lat/lon rounded to 1 decimal).
+    private var terrainFactorsByGrid: [String: Double] = [:]
+    private var terrainFactorOrder: [String] = []
+
     private let cacheTTL: TimeInterval = 10
 
     func cancelInFlightRequests() {
@@ -63,9 +67,12 @@ actor RouteGenerationService {
         let distanceBudgetMeters = seedSpeed * targetSeconds
 
         // Calibrated for 4-leg geometry on straight roads (factor ~1.2×):
-        // r ≈ budget / (4.17 × 1.2) ≈ budget × 0.20. Works well for suburban/rural terrain.
-        // Calibration loop handles winding terrain (Amsterdam canals etc) by scaling down if too long.
-        var radiusMeters = max(200, distanceBudgetMeters * 0.20)
+        // r ≈ budget / (4.17 × 1.2) ≈ budget × 0.20.
+        // If we have learned terrain for this area, pre-adjust radius to reduce retries.
+        let terrainKey = terrainGridKey(for: start)
+        let learnedTerrainFactor = terrainFactorsByGrid[terrainKey] ?? 1.0
+        let baseRadiusMeters = max(200, distanceBudgetMeters * 0.20 / learnedTerrainFactor)
+        var radiusMeters = baseRadiusMeters
 
         // 3 candidates at 120° apart, each a 3-leg triangle loop.
         // Triangle: start → wp1(b°, r) → wp2(b+120°, r) → start
@@ -87,6 +94,7 @@ actor RouteGenerationService {
         }
 
         var loops: [LoopResult] = []
+        var lastMedianTime: TimeInterval?
         let maxAttempts = 3
         var attempt = 0
 
@@ -123,8 +131,8 @@ actor RouteGenerationService {
                 let waitNs = UInt64((throttleWait + 2.0) * 1_000_000_000)
                 logger.log("Waiting \(Int(throttleWait + 2))s for rate limit reset…")
                 try await Task.sleep(nanoseconds: waitNs)
-                // Reset radius (start fresh after throttle).
-                radiusMeters = max(200, distanceBudgetMeters * 0.20)
+                // Reset radius (start fresh after throttle, preserving learned terrain factor).
+                radiusMeters = baseRadiusMeters
                 continue
             }
 
@@ -136,6 +144,7 @@ actor RouteGenerationService {
             // Calibrate radius based on actual MKDirections times.
             let sortedTimes = loops.map { $0.expectedTravelTime }.sorted()
             let medianTime = sortedTimes[sortedTimes.count / 2]
+            lastMedianTime = medianTime
             let ratio = medianTime / targetSeconds
             logger.log("Median: \(Int(medianTime / 60))min (ratio=\(String(format: "%.2f", ratio)))")
 
@@ -178,6 +187,12 @@ actor RouteGenerationService {
             )
         }
 
+        if let medianTime = lastMedianTime, targetSeconds > 0 {
+            let terrainFactor = medianTime / targetSeconds
+            updateTerrainFactor(terrainFactor, for: terrainKey)
+            logger.log("Learned terrain factor \(String(format: "%.2f", terrainFactor)) for \(terrainKey)")
+        }
+
         cache[key] = CacheEntry(createdAt: Date(), routes: routes)
         logger.log("Done: \(routes.count) routes after \(attempt) attempt(s)")
         return routes
@@ -198,6 +213,26 @@ actor RouteGenerationService {
             lonE3: Int((coordinate.longitude * 1000.0).rounded()),
             minutes: minutes
         )
+    }
+
+    private func terrainGridKey(for coordinate: CLLocationCoordinate2D) -> String {
+        let latRounded = (coordinate.latitude * 10).rounded() / 10
+        let lonRounded = (coordinate.longitude * 10).rounded() / 10
+        return "\(latRounded)_\(lonRounded)"
+    }
+
+    private func updateTerrainFactor(_ factor: Double, for key: String) {
+        terrainFactorsByGrid[key] = factor
+
+        if let existingIndex = terrainFactorOrder.firstIndex(of: key) {
+            terrainFactorOrder.remove(at: existingIndex)
+        }
+        terrainFactorOrder.append(key)
+
+        while terrainFactorOrder.count > 20 {
+            let oldestKey = terrainFactorOrder.removeFirst()
+            terrainFactorsByGrid.removeValue(forKey: oldestKey)
+        }
     }
 
     /// Build a 3-leg triangle loop: start → wp1 → wp2 → start.
