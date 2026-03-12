@@ -123,17 +123,22 @@ struct ContentView: View {
         }
         .onAppear {
             lastGenerationCoordinate = locationManager.currentCoordinate
-            regenerate()
+            if forceDemoLocation || locationManager.currentCoordinate != nil {
+                regenerate()
+            }
         }
         .onReceive(locationManager.$currentCoordinate) { newCoord in
             // Only regenerate on live GPS when we're not forcing demo location.
             guard useLocation, !forceDemoLocation, let newCoord else { return }
-            // Ignore GPS jitter — only regenerate if user moved > 50m from last generation point.
+
+            // Always regenerate on first GPS fix.
             if let last = lastGenerationCoordinate {
+                // Ignore GPS jitter — only regenerate if user moved > 50m from last generation point.
                 let lastLoc = CLLocation(latitude: last.latitude, longitude: last.longitude)
                 let newLoc  = CLLocation(latitude: newCoord.latitude, longitude: newCoord.longitude)
                 guard newLoc.distance(from: lastLoc) > 50 else { return }
             }
+
             lastGenerationCoordinate = newCoord
             regenerate()
         }

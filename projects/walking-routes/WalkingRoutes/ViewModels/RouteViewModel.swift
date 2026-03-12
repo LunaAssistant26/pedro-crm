@@ -38,9 +38,13 @@ final class RouteViewModel: ObservableObject {
         if !forceDemo, locationAuthorized, let userCoordinate {
             usingDemoLocation = false
             start = userCoordinate
-        } else {
+        } else if forceDemo {
             usingDemoLocation = true
             start = Self.demoStart
+        } else {
+            // Location authorized but no fix yet — wait, don't fall back to Amsterdam.
+            isLoading = false
+            return
         }
 
         // Clear stale routes if start location shifted significantly (e.g. demo→real GPS).

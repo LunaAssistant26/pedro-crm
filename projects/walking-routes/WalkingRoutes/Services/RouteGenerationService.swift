@@ -87,7 +87,7 @@ actor RouteGenerationService {
         func makeCandidates(radius: CLLocationDistance) -> [Candidate] {
             let nearbyLandmarks = PointsOfInterest.landmarks(
                 near: [start],
-                maxDistanceMeters: radius * 1.5,
+                maxDistanceMeters: radius * 2.0,
                 limit: 2
             )
 
@@ -98,9 +98,18 @@ actor RouteGenerationService {
             let bearingC_wp1 = startLocation.coordinate(atDistanceMeters: radius, bearingDegrees: 240)
             let bearingC_wp2 = startLocation.coordinate(atDistanceMeters: radius, bearingDegrees: 360)
 
-            let aWp1 = nearbyLandmarks.first?.location.clLocation ?? bearingA_wp1
-            let aWp2 = nearbyLandmarks.dropFirst().first?.location.clLocation ?? bearingA_wp2
-            let aLandmarks = Array(nearbyLandmarks.prefix(2))
+            let startCL = CLLocation(latitude: start.latitude, longitude: start.longitude)
+            let maxLandmarkDistance = radius * 2.0
+            let landmarksWithinRange = nearbyLandmarks.filter {
+                let landmarkCL = CLLocation(latitude: $0.location.latitude, longitude: $0.location.longitude)
+                return landmarkCL.distance(from: startCL) <= maxLandmarkDistance
+            }
+
+            // If landmark data is not local enough, fall back to bearing-based waypoints for all candidates.
+            let useLandmarkWaypoints = landmarksWithinRange.count >= 2
+            let aWp1 = useLandmarkWaypoints ? landmarksWithinRange[0].location.clLocation : bearingA_wp1
+            let aWp2 = useLandmarkWaypoints ? landmarksWithinRange[1].location.clLocation : bearingA_wp2
+            let aLandmarks = useLandmarkWaypoints ? Array(landmarksWithinRange.prefix(2)) : []
 
             return [
                 Candidate(id: "A", wp1: aWp1, wp2: aWp2, landmarks: aLandmarks),
@@ -164,10 +173,10 @@ actor RouteGenerationService {
             let ratio = medianTime / targetSeconds
             logger.log("Median: \(Int(medianTime / 60))min (ratio=\(String(format: "%.2f", ratio)))")
 
-            if ratio < 0.70 && attempt < maxAttempts {
+            if ratio < 0.80 && attempt < maxAttempts {
                 radiusMeters *= 1.3
                 logger.log("Too short → scaling radius up to \(Int(radiusMeters))m")
-            } else if ratio > 1.30 && attempt < maxAttempts {
+            } else if ratio > 1.20 && attempt < maxAttempts {
                 radiusMeters *= 0.75
                 logger.log("Too long → scaling radius down to \(Int(radiusMeters))m")
             } else {
@@ -177,9 +186,22 @@ actor RouteGenerationService {
 
         if loops.isEmpty { throw DirectionsUnavailableError() }
 
-        // Pick up to 3 best routes. Prefer those within tolerance; fall back to all if fewer than 3.
+        // Pick up to 3 best routes.
+        // Prefer ±10 min tolerance first. If none are in-range after calibration retries,
+        // widen to ±15 min before falling back to the best available 3.
         let filtered = loops.filter { abs($0.expectedTravelTime - targetSeconds) <= toleranceSeconds }
-        let pool = filtered.count >= 3 ? filtered : loops
+        let fallbackToleranceSeconds = TimeInterval(15 * 60)
+        let widened = loops.filter { abs($0.expectedTravelTime - targetSeconds) <= fallbackToleranceSeconds }
+
+        let pool: [LoopResult]
+        if !filtered.isEmpty {
+            pool = filtered
+        } else if attempt >= 2, !widened.isEmpty {
+            pool = widened
+        } else {
+            pool = loops
+        }
+
         let picked = pool
             .sorted { abs($0.expectedTravelTime - targetSeconds) < abs($1.expectedTravelTime - targetSeconds) }
             .prefix(3)
