@@ -83,14 +83,15 @@ struct RouteNavigationView: View {
 
             navModel.loadStepsIfNeeded()
 
-            // Default behaviour: demo navigation (no GPS, no permission prompt).
             isDemoNavigation = !useLocation
             if isDemoNavigation {
                 locationManager.stopUpdating()
                 navModel.enableDemoMode()
+            } else {
+                // Explicitly start location updates — the async delegate callback in init
+                // may not have fired yet when onAppear runs, so we force-start here.
+                locationManager.startUpdating()
             }
-            // LocationManager is always initialized (@StateObject). Updates start automatically
-            // if authorized. No fallback to demo — real GPS is used if permission is granted.
         }
         .onDisappear {
             logger.log("NavigationView disappeared")
@@ -660,6 +661,16 @@ final class LocationManager: NSObject, ObservableObject, CLLocationManagerDelega
             authorizationStatus = CLLocationManager.authorizationStatus()
         }
         logger.log("Current authorization status: \(String(describing: self.authorizationStatus))")
+    }
+
+    func startUpdating() {
+        refreshAuthorizationStatus()
+        guard authorizationStatus == .authorizedWhenInUse || authorizationStatus == .authorizedAlways else {
+            requestAuthorizationIfNeeded()
+            return
+        }
+        logger.log("Starting location updates")
+        manager.startUpdatingLocation()
     }
 
     func stopUpdating() {
