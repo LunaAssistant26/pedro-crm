@@ -77,7 +77,7 @@ struct ContentView: View {
                         .padding(.vertical, 10)
                     }
 
-                    if let error = viewModel.errorMessage {
+                    if let error = viewModel.errorMessage, viewModel.routes.isEmpty {
                         Text(error)
                             .font(.subheadline)
                             .foregroundStyle(.red)
