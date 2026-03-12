@@ -68,11 +68,16 @@ actor RouteGenerationService {
             let wp2: CLLocationCoordinate2D
         }
 
+        // 6 candidates spread evenly (every 60°) to maximise chance of finding
+        // 3 valid pedestrian loops in any terrain (urban, suburban, rural, worldwide).
+        // 6 candidates × 3 legs = 18 MKDirections requests per attempt (max 2 retries = 54 total).
         let bearingPairs: [(CLLocationDegrees, CLLocationDegrees)] = [
-            (0, 120),
-            (45, 165),
-            (90, 210),
-            (135, 255)
+            (0,   120),
+            (60,  180),
+            (120, 240),
+            (180, 300),
+            (240, 0),
+            (300, 60)
         ]
 
         var loops: [LoopResult] = []
@@ -132,8 +137,10 @@ actor RouteGenerationService {
 
         if loops.isEmpty { throw DirectionsUnavailableError() }
 
+        // Always try to return 3 routes. Use tolerance filter first; if it gives
+        // fewer than 3, fall back to all available loops sorted by closeness to target.
         let filtered = loops.filter { abs($0.expectedTravelTime - targetSeconds) <= toleranceSeconds }
-        let pool = filtered.isEmpty ? loops : filtered
+        let pool = filtered.count >= 3 ? filtered : loops
 
         let sorted = pool.sorted { abs($0.expectedTravelTime - targetSeconds) < abs($1.expectedTravelTime - targetSeconds) }
         let picked = Array(sorted.prefix(3))

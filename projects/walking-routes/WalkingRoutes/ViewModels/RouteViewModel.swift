@@ -77,6 +77,8 @@ final class RouteViewModel: ObservableObject {
             return
         }
 
+        // Guard: if this task was cancelled before we even started (rapid slider), bail early.
+        guard !Task.isCancelled else { return }
         isLoading = true
 
         generationTask = Task { [weak self] in
