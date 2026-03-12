@@ -68,12 +68,14 @@ struct RouteNavigationView: View {
                 Spacer(minLength: 0)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+            .allowsHitTesting(true)   // Ensure buttons receive taps over MKMapView
             .zIndex(10)
         }
         .overlay(alignment: .bottom) {
             turnByTurnCard
                 .padding(.horizontal)
                 .padding(.bottom, 16)
+                .allowsHitTesting(true)
                 .zIndex(10)
         }
         .navigationBarBackButtonHidden(true)
@@ -421,13 +423,14 @@ struct RouteMapViewRepresentable: UIViewRepresentable {
         if routeChanged {
             mapView.removeOverlays(mapView.overlays)
             mapView.removeAnnotations(mapView.annotations.filter { !($0 is MKUserLocation) })
-            context.coordinator.markRouteDrawn(route.id)
 
             let points = route.pathCoordinates
             guard !points.isEmpty else {
                 logger.warning("No path coordinates available for route: \(route.name)")
-                return
+                return  // Don't mark as drawn — retry next update
             }
+
+            context.coordinator.markRouteDrawn(route.id)  // Only mark drawn after confirmed non-empty
 
             // Add numbered annotations for landmarks
             if showsNumberedPins {
@@ -456,8 +459,9 @@ struct RouteMapViewRepresentable: UIViewRepresentable {
             let span = MKCoordinateSpan(latitudeDelta: 0.005, longitudeDelta: 0.005)
             let region = MKCoordinateRegion(center: userCoordinate, span: span)
             mapView.setRegion(region, animated: true)
-        } else if !fitToRoute, routeChanged, let firstPoint = route.pathCoordinates.first {
-            // No user location yet: zoom to route start with street-level span
+        } else if !fitToRoute, let firstPoint = route.pathCoordinates.first {
+            // No user location yet: zoom to route start at street level.
+            // Don't gate on routeChanged — if map region was never set (blank), re-apply every update.
             let span = MKCoordinateSpan(latitudeDelta: 0.01, longitudeDelta: 0.01)
             let region = MKCoordinateRegion(center: firstPoint, span: span)
             mapView.setRegion(region, animated: false)
