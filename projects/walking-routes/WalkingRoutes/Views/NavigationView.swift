@@ -44,20 +44,25 @@ struct RouteNavigationView: View {
     }
 
     var body: some View {
-        RouteMapViewRepresentable(
-            route: route,
-            routeColor: route.routeColor,
-            showsUserLocation: false,   // use our own LocationManager; MKCoreLocationProvider (showsUserLocation=true) causes kCLErrorDomain Code=1
-            followUser: effectiveUseLocation,
-            userCoordinate: effectiveUseLocation ? locationManager.currentCoordinate : nil,
-            showsNumberedPins: true,
-            fitToRoute: false
-        )
-        .ignoresSafeArea()
-        // Keep controls above the MKMapView so taps always land on buttons (Exit/Camera).
-        .overlay(alignment: .top) {
+        // ZStack approach: map fills the screen, controls float on top.
+        // Avoids overlay-on-UIViewRepresentable touch routing issues in fullScreenCover.
+        ZStack(alignment: .top) {
+            // Map layer — fills entire screen
+            RouteMapViewRepresentable(
+                route: route,
+                routeColor: route.routeColor,
+                showsUserLocation: false,
+                followUser: effectiveUseLocation,
+                userCoordinate: effectiveUseLocation ? locationManager.currentCoordinate : nil,
+                showsNumberedPins: true,
+                fitToRoute: false
+            )
+            .ignoresSafeArea()
+
+            // Controls layer — sits on top, pinned to top edge
             VStack(spacing: 0) {
                 topControls
+                    .background(.clear)
 
                 if navModel.isOffRoute {
                     offRouteBanner
@@ -65,19 +70,17 @@ struct RouteNavigationView: View {
                         .padding(.top, 10)
                         .transition(.move(edge: .top).combined(with: .opacity))
                 }
-                // Removed Spacer(minLength: 0) + maxHeight:.infinity + allowsHitTesting(true):
-                // That combination made the full-screen transparent VStack consume ALL touches,
-                // blocking the bottom card buttons and making the screen appear frozen/unresponsive.
             }
             .frame(maxWidth: .infinity, alignment: .top)
-            .zIndex(10)
-        }
-        .overlay(alignment: .bottom) {
-            turnByTurnCard
-                .padding(.horizontal)
-                .padding(.bottom, 16)
-                .allowsHitTesting(true)
-                .zIndex(10)
+
+            // Turn card — pinned to bottom
+            VStack {
+                Spacer()
+                    .allowsHitTesting(false)   // transparent spacer must NOT eat touches
+                turnByTurnCard
+                    .padding(.horizontal)
+                    .padding(.bottom, 16)
+            }
         }
         .navigationBarBackButtonHidden(true)
         .navigationBarHidden(true)
@@ -98,7 +101,8 @@ struct RouteNavigationView: View {
         }
         .onDisappear {
             logger.log("NavigationView disappeared")
-            locationManager.stopUpdating()
+            // Don't stop the shared LocationManager here — ContentView still needs location updates.
+            // Only disable demo mode so ViewModel cleans up its timer.
             navModel.disableDemoMode()
         }
         .onReceive(locationUpdates) { user in
