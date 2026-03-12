@@ -1,16 +1,14 @@
 import SwiftUI
 
-/// Lightweight feature flags / toggles backed by UserDefaults.
-///
-/// Defaults:
-/// - Real GPS navigation is OFF (demo mode) unless explicitly enabled.
+/// Feature flags backed by UserDefaults.
 enum AppFlags {
-    /// When true, the navigation screen will attempt to use live GPS.
-    /// When false (default), navigation runs in demo mode without requesting location permission.
     static let useRealGPSNavigationKey = "useRealGPSNavigation"
 
+    /// Always true by default — navigation uses real GPS.
+    /// Set to false only for screenshot/preview captures.
     static var useRealGPSNavigation: Bool {
-        UserDefaults.standard.bool(forKey: useRealGPSNavigationKey)
+        let stored = UserDefaults.standard.object(forKey: useRealGPSNavigationKey)
+        return stored == nil ? true : UserDefaults.standard.bool(forKey: useRealGPSNavigationKey)
     }
 }
 

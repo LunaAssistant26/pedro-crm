@@ -10,6 +10,9 @@ enum AppFlags {
     static let useRealGPSNavigationKey = "useRealGPSNavigation"
 
     static var useRealGPSNavigation: Bool {
-        UserDefaults.standard.bool(forKey: useRealGPSNavigationKey)
+        // Default true — always use real GPS for navigation.
+        // Only falls back to demo if explicitly set false (e.g. for screenshot captures).
+        let stored = UserDefaults.standard.object(forKey: useRealGPSNavigationKey)
+        return stored == nil ? true : UserDefaults.standard.bool(forKey: useRealGPSNavigationKey)
     }
 }
