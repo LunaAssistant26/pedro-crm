@@ -427,7 +427,7 @@ enum PointsOfInterest {
             id: UUID(),
             name: "Griftpark",
             description: "Popular city park with playground, skate park, and petting zoo.",
-            location: Location(latitude: 52.0945, longitude: 5.1235),
+            location: Location(latitude: 52.0978, longitude: 5.1295),
             estimatedTime: 30,
             imageURL: "https://upload.wikimedia.org/wikipedia/commons/thumb/5/5a/Griftpark_Utrecht.jpg/800px-Griftpark_Utrecht.jpg",
             rating: 4.5,

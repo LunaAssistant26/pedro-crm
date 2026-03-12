@@ -30,7 +30,8 @@ final class RouteViewModel: ObservableObject {
         // Debounce rapid slider/location changes to avoid MKDirections throttling.
         debounceTask?.cancel()
         generationTask?.cancel()
-        Task { [generationService] in await generationService.cancelInFlightRequests() }
+        // Note: do NOT fire cancelInFlightRequests() here — it races with the new debounceTask's
+        // generation that starts 2s later, cancelling the new requests. Task cancellation above is sufficient.
 
         let forceDemo = UserDefaults.standard.bool(forKey: "forceDemoLocation")
 
@@ -128,7 +129,8 @@ final class RouteViewModel: ObservableObject {
                 // Don't set isLoading = false here — if we're cancelled, a new generation
                 // is starting and will set isLoading appropriately. Setting it false here
                 // creates a race where the cancelled task overwrites the new task's isLoading = true.
-                await self.generationService.cancelInFlightRequests()
+                // Do NOT call cancelInFlightRequests() here — generateRoutes() already fires that
+                // as a separate task, and calling it again here races with the new generation's requests.
                 self.logger.debug("Route generation cancelled")
             } catch {
                 await MainActor.run {
