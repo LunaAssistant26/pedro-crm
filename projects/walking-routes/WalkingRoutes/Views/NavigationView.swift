@@ -26,6 +26,11 @@ struct RouteNavigationView: View {
     @State private var showMuterVideoSheet = false
     @State private var didAutoPresentFinish = false
 
+    /// Delay MKMapView creation until onAppear — SwiftUI resets the frame to 0×0 during the
+    /// fullScreenCover open animation, which causes CAMetalLayer to crash with zero drawable size,
+    /// which in turn interrupts the XPC connection and freezes the entire navigation view.
+    @State private var mapReady = false
+
     private let logger = Logger(subsystem: "com.walkingroutes", category: "RouteNavigationView")
 
     init(route: Route, useLocation: Bool = true) {
@@ -47,17 +52,22 @@ struct RouteNavigationView: View {
         // ZStack approach: map fills the screen, controls float on top.
         // Avoids overlay-on-UIViewRepresentable touch routing issues in fullScreenCover.
         ZStack(alignment: .top) {
-            // Map layer — fills entire screen
-            RouteMapViewRepresentable(
-                route: route,
-                routeColor: route.routeColor,
-                showsUserLocation: false,
-                followUser: effectiveUseLocation,
-                userCoordinate: effectiveUseLocation ? locationManager.currentCoordinate : nil,
-                showsNumberedPins: true,
-                fitToRoute: false
-            )
-            .ignoresSafeArea()
+            // Map layer — only created AFTER onAppear so the fullScreenCover animation has
+            // completed and the view has a real non-zero frame. Prevents CAMetalLayer crash.
+            if mapReady {
+                RouteMapViewRepresentable(
+                    route: route,
+                    routeColor: route.routeColor,
+                    showsUserLocation: false,
+                    followUser: effectiveUseLocation,
+                    userCoordinate: effectiveUseLocation ? locationManager.currentCoordinate : nil,
+                    showsNumberedPins: true,
+                    fitToRoute: false
+                )
+                .ignoresSafeArea()
+            } else {
+                Color(.systemBackground).ignoresSafeArea()
+            }
 
             // Controls layer — sits on top, pinned to top edge
             VStack(spacing: 0) {
@@ -91,12 +101,16 @@ struct RouteNavigationView: View {
 
             isDemoNavigation = !useLocation
             if isDemoNavigation {
-                locationManager.stopUpdating()
                 navModel.enableDemoMode()
             } else {
-                // Explicitly start location updates — the async delegate callback in init
-                // may not have fired yet when onAppear runs, so we force-start here.
                 locationManager.startUpdating()
+            }
+
+            // Defer map creation by one run-loop tick so the fullScreenCover animation
+            // has completed and SwiftUI has set a valid non-zero frame. Without this,
+            // the MKMapView is created with a 0×0 frame, crashing the Metal renderer.
+            DispatchQueue.main.async {
+                mapReady = true
             }
         }
         .onDisappear {

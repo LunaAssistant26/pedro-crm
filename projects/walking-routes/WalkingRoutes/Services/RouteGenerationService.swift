@@ -150,14 +150,8 @@ actor RouteGenerationService {
                     logger.warning("Throttled on candidate \(c.id). Will wait \(Int(throttle.waitSeconds))s before retry.")
                     break
                 } catch {
-                    let ns = error as NSError
-                    // Fallback: if Apple returns "Directions Not Available" for ALL candidates,
-                    // it often means we're throttled (Apple hides the real throttle code from us).
-                    if ns.domain == MKError.errorDomain && ns.code == MKError.Code.directionsNotFound.rawValue {
-                        throttleWait = max(throttleWait, 30) // treat as soft throttle: wait 30s
-                        logger.warning("Candidate \(c.id): directionsNotFound — treating as throttle")
-                        break
-                    }
+                    // Candidate failed with a non-throttle error (e.g. no walkable path at that waypoint).
+                    // Don't break — continue trying the remaining candidates.
                     logger.debug("Candidate \(c.id) failed: \(error.localizedDescription)")
                 }
             }
