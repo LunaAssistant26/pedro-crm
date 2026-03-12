@@ -102,7 +102,7 @@ actor RouteGenerationService {
             for c in candidates {
                 if Task.isCancelled { throw CancellationError() }
                 do {
-                    let loop = try await buildLoop(start: start, wp1: c.wp1, wpMid: c.wpMid, wp2: c.wp2)
+                    let loop = try await buildLoop(start: start, wp1: c.wp1, wp2: c.wp2)
                     loops.append(loop)
                 } catch is CancellationError {
                     throw CancellationError()
