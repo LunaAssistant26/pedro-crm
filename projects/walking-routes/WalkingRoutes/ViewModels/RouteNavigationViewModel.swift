@@ -66,24 +66,30 @@ final class RouteNavigationViewModel: ObservableObject {
         }
 
         // Fallback: compute via NavigationDirectionsService (only if route has no persisted steps).
+        // Race against a 3-second timeout so the UI never hangs forever if the service stalls.
         Task {
             do {
-                let computed = try await NavigationDirectionsService.shared.steps(for: route)
-                await MainActor.run {
-                    self.steps = computed
-                    self.currentStepIndex = 0
-                    if self.isDemoMode {
-                        self.startDemoAutoAdvanceIfPossible()
+                let computed = try await withThrowingTaskGroup(of: [NavigationStep].self) { group in
+                    group.addTask { try await NavigationDirectionsService.shared.steps(for: self.route) }
+                    group.addTask {
+                        try await Task.sleep(nanoseconds: 3_000_000_000)
+                        throw CancellationError()   // timeout — fall through to catch
                     }
+                    defer { group.cancelAll() }
+                    guard let result = try await group.next() else { throw CancellationError() }
+                    return result
+                }
+                self.steps = computed
+                self.currentStepIndex = 0
+                if self.isDemoMode {
+                    self.startDemoAutoAdvanceIfPossible()
                 }
             } catch {
-                // If NavigationDirectionsService fails (e.g., throttled), use persisted steps from route.
+                // NavigationDirectionsService failed or timed out — fall back to persisted steps.
                 let fallback = route.navigationSteps ?? []
-                await MainActor.run {
-                    self.steps = fallback
-                    if self.isDemoMode && !fallback.isEmpty {
-                        self.startDemoAutoAdvanceIfPossible()
-                    }
+                self.steps = fallback
+                if self.isDemoMode && !fallback.isEmpty {
+                    self.startDemoAutoAdvanceIfPossible()
                 }
             }
         }

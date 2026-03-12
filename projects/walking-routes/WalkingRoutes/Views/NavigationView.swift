@@ -46,7 +46,7 @@ struct RouteNavigationView: View {
         RouteMapViewRepresentable(
             route: route,
             routeColor: route.routeColor,
-            showsUserLocation: effectiveUseLocation,
+            showsUserLocation: false,   // use our own LocationManager; MKCoreLocationProvider (showsUserLocation=true) causes kCLErrorDomain Code=1
             followUser: effectiveUseLocation,
             userCoordinate: effectiveUseLocation ? locationManager.currentCoordinate : nil,
             showsNumberedPins: true,
@@ -64,11 +64,11 @@ struct RouteNavigationView: View {
                         .padding(.top, 10)
                         .transition(.move(edge: .top).combined(with: .opacity))
                 }
-
-                Spacer(minLength: 0)
+                // Removed Spacer(minLength: 0) + maxHeight:.infinity + allowsHitTesting(true):
+                // That combination made the full-screen transparent VStack consume ALL touches,
+                // blocking the bottom card buttons and making the screen appear frozen/unresponsive.
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-            .allowsHitTesting(true)   // Ensure buttons receive taps over MKMapView
+            .frame(maxWidth: .infinity, alignment: .top)
             .zIndex(10)
         }
         .overlay(alignment: .bottom) {
