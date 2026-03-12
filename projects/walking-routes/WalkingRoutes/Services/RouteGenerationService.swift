@@ -39,7 +39,7 @@ actor RouteGenerationService {
     private var cache: [CacheKey: CacheEntry] = [:]
     private var inFlight: [UUID: MKDirections] = [:]
 
-    private let cacheTTL: TimeInterval = 30
+    private let cacheTTL: TimeInterval = 10
 
     func cancelInFlightRequests() {
         for (_, d) in inFlight { d.cancel() }

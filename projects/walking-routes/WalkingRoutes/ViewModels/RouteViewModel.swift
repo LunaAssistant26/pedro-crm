@@ -15,14 +15,7 @@ final class RouteViewModel: ObservableObject {
 
     private var generationTask: Task<Void, Never>?
     private var debounceTask: Task<Void, Never>?
-
-    private struct RecentKey: Hashable {
-        let latE3: Int
-        let lonE3: Int
-        let minutes: Int
-    }
-
-    private var lastGenerated: (key: RecentKey, at: Date)?
+    private var lastStart: CLLocationCoordinate2D?
 
     /// Demo-only fallback if location isn't available.
     static let demoStart = CLLocationCoordinate2D(latitude: 52.3780, longitude: 4.9006) // Amsterdam Centraal
@@ -50,9 +43,16 @@ final class RouteViewModel: ObservableObject {
             start = Self.demoStart
         }
 
-        // Clear any previous error but keep last successful routes on screen.
+        // Clear stale routes if start location shifted significantly (e.g. demo→real GPS).
+        if let lastStart = lastStart {
+            let prev = CLLocation(latitude: lastStart.latitude, longitude: lastStart.longitude)
+            let next = CLLocation(latitude: start.latitude, longitude: start.longitude)
+            if next.distance(from: prev) > 200 { routes = [] }
+        }
+        lastStart = start
+
         errorMessage = nil
-        isLoading = false
+        isLoading = true  // Show spinner immediately so user knows a generation is queued
 
         debounceTask = Task { [weak self] in
             // Wait until the user stops changing the slider for a moment.
@@ -63,23 +63,8 @@ final class RouteViewModel: ObservableObject {
     }
 
     private func performGeneration(start: CLLocationCoordinate2D, minutes: Int) async {
-        let key = RecentKey(
-            latE3: Int((start.latitude * 1000.0).rounded()),
-            lonE3: Int((start.longitude * 1000.0).rounded()),
-            minutes: minutes
-        )
-
-        if let last = lastGenerated,
-           last.key == key,
-           Date().timeIntervalSince(last.at) <= 30,
-           !routes.isEmpty {
-            logger.debug("Skipping regeneration (same start+minutes within 30s)")
-            return
-        }
-
         // Guard: if this task was cancelled before we even started (rapid slider), bail early.
         guard !Task.isCancelled else { return }
-        isLoading = true
 
         generationTask = Task { [weak self] in
             guard let self else { return }
@@ -131,7 +116,6 @@ final class RouteViewModel: ObservableObject {
 
                 await MainActor.run {
                     self.routes = enriched
-                    self.lastGenerated = (key: key, at: Date())
                     self.isLoading = false
                     self.errorMessage = nil
                 }
