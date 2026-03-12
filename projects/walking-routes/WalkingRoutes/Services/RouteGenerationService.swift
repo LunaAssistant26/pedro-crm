@@ -150,6 +150,14 @@ actor RouteGenerationService {
                     logger.warning("Throttled on candidate \(c.id). Will wait \(Int(throttle.waitSeconds))s before retry.")
                     break
                 } catch {
+                    let ns = error as NSError
+                    // Fallback: if Apple returns "Directions Not Available" for ALL candidates,
+                    // it often means we're throttled (Apple hides the real throttle code from us).
+                    if ns.domain == MKError.errorDomain && ns.code == MKError.Code.directionsNotFound.rawValue {
+                        throttleWait = max(throttleWait, 30) // treat as soft throttle: wait 30s
+                        logger.warning("Candidate \(c.id): directionsNotFound — treating as throttle")
+                        break
+                    }
                     logger.debug("Candidate \(c.id) failed: \(error.localizedDescription)")
                 }
             }
@@ -327,11 +335,18 @@ actor RouteGenerationService {
             try await withCheckedThrowingContinuation { continuation in
                 dir.calculate { response, error in
                     if let error {
-                        // Detect Apple's MKDirections rate-limit (GEOErrorDomain Code=-3).
                         let ns = error as NSError
-                        if ns.domain == "GEOErrorDomain" && ns.code == -3 {
+                        // Detect Apple's MKDirections rate-limit.
+                        // Apple logs GEOErrorDomain Code=-3 internally, but the callback may receive
+                        // MKError.loadingThrottled (MKErrorDomain Code=3) or GEOErrorDomain Code=-3.
+                        let isGEOThrottle  = ns.domain == "GEOErrorDomain" && ns.code == -3
+                        let isMKThrottle   = ns.domain == MKError.errorDomain && ns.code == MKError.Code.loadingThrottled.rawValue
+                        // Also check underlying error (sometimes wrapped)
+                        let underlying     = ns.userInfo[NSUnderlyingErrorKey] as? NSError
+                        let isUnderThrottle = (underlying?.domain == "GEOErrorDomain" && underlying?.code == -3) == true
+
+                        if isGEOThrottle || isMKThrottle || isUnderThrottle {
                             var wait: Double = 32
-                            // NSDictionary doesn't bridge cleanly to [String:Any] — cast via NSDictionary.
                             let rawDetails = ns.userInfo["details"]
                             let details = (rawDetails as? NSDictionary) ?? (rawDetails as? [AnyHashable: Any]).map { NSDictionary(dictionary: $0) }
                             if let reset = (details?["timeUntilReset"] as? NSNumber)?.doubleValue {
