@@ -5,13 +5,16 @@ import os.log
 
 /// Generates loop-only walking routes (start == end) around a given coordinate for a time budget.
 ///
-/// Notes (throttle-safe):
-/// - Hard-bounds MKDirections requests to <= 12 per generation attempt (4 candidates * 3 legs).
-/// - Iterative radius calibration: up to 2 retries if MKDirections times are way off target.
-/// - Deterministic candidates (no random expansion) + no heavy task-group concurrency.
-/// - Short-lived cache (30s) to avoid repeated calls for identical inputs.
-/// - Supports cancellation by calling `MKDirections.cancel()` for in-flight requests.
+/// Design:
+/// - 3 candidates × 4 legs = 12 MKDirections requests per attempt (max 2 retries = 36 total).
+///   Well under Apple's 50 req/60s rate limit, even with rapid slider changes.
+/// - Each candidate uses 4 waypoints (quadrilateral loop), which forces routing through
+///   different streets and avoids walking back on the same road.
+/// - Throttle detection: if Apple returns GEOErrorDomain -3, waits for reset before retry.
+/// - Iterative radius calibration: adjusts radius if routes are too short/long.
+/// - Short-lived cache (30s) to skip redundant calls for same inputs.
 actor RouteGenerationService {
+
     struct CacheKey: Hashable {
         let latE3: Int
         let lonE3: Int
@@ -20,6 +23,10 @@ actor RouteGenerationService {
 
     struct DirectionsUnavailableError: LocalizedError {
         var errorDescription: String? { "Directions are currently unavailable." }
+    }
+
+    private struct ThrottleError: Error {
+        let waitSeconds: Double
     }
 
     private struct CacheEntry {
@@ -39,117 +46,129 @@ actor RouteGenerationService {
         inFlight.removeAll()
     }
 
-    /// Generate up to 3 loop route options.
+    /// Generate up to 3 loop route options from `start` for the given `minutes` budget.
     func generateLoopRoutes(start: CLLocationCoordinate2D, minutes: Int, toleranceMinutes: Int = 15) async throws -> [Route] {
         if Task.isCancelled { throw CancellationError() }
 
         let key = cacheKey(for: start, minutes: minutes)
         if let entry = cache[key], Date().timeIntervalSince(entry.createdAt) <= cacheTTL {
-            logger.log("Cache hit (<=\(Int(self.cacheTTL))s) latE3=\(key.latE3) lonE3=\(key.lonE3) minutes=\(minutes). routes=\(entry.routes.count)")
+            logger.log("Cache hit latE3=\(key.latE3) lonE3=\(key.lonE3) minutes=\(minutes)")
             return entry.routes
         }
 
         let startLocation = CLLocation(latitude: start.latitude, longitude: start.longitude)
-
         let targetSeconds = TimeInterval(minutes * 60)
         let toleranceSeconds = TimeInterval(toleranceMinutes * 60)
 
-        // walkingSpeedMetersPerSecond seeds the initial radius estimate ONLY.
-        // MKDirections expectedTravelTime is the source of truth for route duration.
-        let walkingSpeedMetersPerSecond: CLLocationDistance = 4.8 * 1000.0 / 3600.0
-        let distanceBudgetMeters = walkingSpeedMetersPerSecond * targetSeconds
-        // Start conservative (0.20) — real walking routes are 1.4–1.8x straight-line due to
-        // bridges, pedestrian paths, and canals. Iterative calibration adjusts below.
-        var radiusMeters = max(220, distanceBudgetMeters * 0.20)
+        // Seeds the initial radius only. MKDirections expectedTravelTime is source of truth.
+        let seedSpeed: CLLocationDistance = 4.8 * 1000.0 / 3600.0
+        let distanceBudgetMeters = seedSpeed * targetSeconds
 
+        // Start conservative — real walking routes are 1.4–1.8× straight-line distance.
+        var radiusMeters = max(200, distanceBudgetMeters * 0.20)
+
+        // 3 candidates evenly at 120° apart, each a 4-waypoint quadrilateral loop.
+        // Placing the "peak" waypoint between the two side waypoints ensures a genuine loop
+        // and forces routing through different streets (avoids same-road backtracking).
+        //
+        //  Candidate layout (for offset b):
+        //    start → wp1(b°, r) → wpMid(b+60°, r×1.15) → wp2(b+120°, r) → start
+        //
+        // 3 candidates × 4 legs = 12 MKDirections requests per attempt.
         struct Candidate: Sendable {
             let id: String
             let wp1: CLLocationCoordinate2D
+            let wpMid: CLLocationCoordinate2D
             let wp2: CLLocationCoordinate2D
         }
 
-        // 6 candidates spread evenly (every 60°) to maximise chance of finding
-        // 3 valid pedestrian loops in any terrain (urban, suburban, rural, worldwide).
-        // 6 candidates × 3 legs = 18 MKDirections requests per attempt (max 2 retries = 54 total).
-        let bearingPairs: [(CLLocationDegrees, CLLocationDegrees)] = [
-            (0,   120),
-            (60,  180),
-            (120, 240),
-            (180, 300),
-            (240, 0),
-            (300, 60)
-        ]
-
-        var loops: [LoopResult] = []
-        let maxRetries = 2
-        var attempt = 0
-
-        repeat {
-            if Task.isCancelled { throw CancellationError() }
-
-            let candidates: [Candidate] = bearingPairs.enumerated().map { idx, pair in
-                let (b1, b2) = pair
-                return Candidate(
-                    id: "c\(idx)",
-                    wp1: startLocation.coordinate(atDistanceMeters: radiusMeters, bearingDegrees: b1),
-                    wp2: startLocation.coordinate(atDistanceMeters: radiusMeters, bearingDegrees: b2)
+        func makeCandidates(radius: CLLocationDistance) -> [Candidate] {
+            [(0.0, "A"), (120.0, "B"), (240.0, "C")].map { (offset, id) in
+                Candidate(
+                    id: id,
+                    wp1:  startLocation.coordinate(atDistanceMeters: radius,        bearingDegrees: offset),
+                    wpMid: startLocation.coordinate(atDistanceMeters: radius * 1.15, bearingDegrees: offset + 60),
+                    wp2:  startLocation.coordinate(atDistanceMeters: radius,        bearingDegrees: offset + 120)
                 )
             }
+        }
 
-            logger.log("Attempt \(attempt + 1): minutes=\(minutes), budget=\(Int(distanceBudgetMeters))m, radius=\(Int(radiusMeters))m")
+        var loops: [LoopResult] = []
+        let maxAttempts = 3
+        var attempt = 0
+
+        while attempt < maxAttempts {
+            if Task.isCancelled { throw CancellationError() }
+
+            let candidates = makeCandidates(radius: radiusMeters)
+            logger.log("Attempt \(attempt + 1)/\(maxAttempts): radius=\(Int(radiusMeters))m target=\(minutes)min")
 
             loops = []
-            loops.reserveCapacity(candidates.count)
+            var throttleWait: Double = 0
 
             for c in candidates {
                 if Task.isCancelled { throw CancellationError() }
                 do {
-                    let loop = try await buildLoop(start: start, wp1: c.wp1, wp2: c.wp2)
+                    let loop = try await buildLoop(start: start, wp1: c.wp1, wpMid: c.wpMid, wp2: c.wp2)
                     loops.append(loop)
                 } catch is CancellationError {
                     throw CancellationError()
+                } catch let throttle as ThrottleError {
+                    // Throttled by Apple. Record the wait time and stop this attempt.
+                    throttleWait = max(throttleWait, throttle.waitSeconds)
+                    logger.warning("Throttled on candidate \(c.id). Will wait \(Int(throttle.waitSeconds))s before retry.")
+                    break
                 } catch {
                     logger.debug("Candidate \(c.id) failed: \(error.localizedDescription)")
-                    continue
                 }
             }
 
             attempt += 1
 
-            // Stop if no results or we've exhausted retries.
-            guard !loops.isEmpty, attempt <= maxRetries else { break }
+            // If throttled, wait for Apple's rate limit reset, then retry.
+            if throttleWait > 0 {
+                let waitNs = UInt64((throttleWait + 2.0) * 1_000_000_000)
+                logger.log("Waiting \(Int(throttleWait + 2))s for rate limit reset…")
+                try await Task.sleep(nanoseconds: waitNs)
+                // Reset radius (start fresh after throttle).
+                radiusMeters = max(200, distanceBudgetMeters * 0.20)
+                continue
+            }
 
-            // Calibrate: check if all candidates are way off target.
-            // Use median to be robust against outliers.
+            guard !loops.isEmpty else {
+                // All candidates failed (no pedestrian paths at this radius) — give up.
+                break
+            }
+
+            // Calibrate radius based on actual MKDirections times.
             let sortedTimes = loops.map { $0.expectedTravelTime }.sorted()
             let medianTime = sortedTimes[sortedTimes.count / 2]
+            let ratio = medianTime / targetSeconds
+            logger.log("Median: \(Int(medianTime / 60))min (ratio=\(String(format: "%.2f", ratio)))")
 
-            if loops.allSatisfy({ $0.expectedTravelTime < targetSeconds * 0.70 }) {
+            if ratio < 0.70 && attempt < maxAttempts {
                 radiusMeters *= 1.3
-                logger.log("Calibration: median \(Int(medianTime / 60))min < 70% target, scaling radius up to \(Int(radiusMeters))m")
-            } else if loops.allSatisfy({ $0.expectedTravelTime > targetSeconds * 1.30 }) {
+                logger.log("Too short → scaling radius up to \(Int(radiusMeters))m")
+            } else if ratio > 1.30 && attempt < maxAttempts {
                 radiusMeters *= 0.75
-                logger.log("Calibration: median \(Int(medianTime / 60))min > 130% target, scaling radius down to \(Int(radiusMeters))m")
+                logger.log("Too long → scaling radius down to \(Int(radiusMeters))m")
             } else {
-                break // radius is calibrated well enough
+                break // Good enough.
             }
-        } while attempt <= maxRetries
+        }
 
         if loops.isEmpty { throw DirectionsUnavailableError() }
 
-        // Always try to return 3 routes. Use tolerance filter first; if it gives
-        // fewer than 3, fall back to all available loops sorted by closeness to target.
+        // Pick up to 3 best routes. Prefer those within tolerance; fall back to all if fewer than 3.
         let filtered = loops.filter { abs($0.expectedTravelTime - targetSeconds) <= toleranceSeconds }
         let pool = filtered.count >= 3 ? filtered : loops
-
-        let sorted = pool.sorted { abs($0.expectedTravelTime - targetSeconds) < abs($1.expectedTravelTime - targetSeconds) }
-        let picked = Array(sorted.prefix(3))
+        let picked = pool
+            .sorted { abs($0.expectedTravelTime - targetSeconds) < abs($1.expectedTravelTime - targetSeconds) }
+            .prefix(3)
 
         let routes: [Route] = picked.enumerated().map { index, loop in
             let distanceKm = loop.distanceMeters / 1000.0
-            // Use MKDirections expectedTravelTime as source of truth for duration.
             let durationMin = Int(round(loop.expectedTravelTime / 60.0))
-
             return Route(
                 id: UUID(),
                 name: "Loop Option \(index + 1)",
@@ -167,7 +186,7 @@ actor RouteGenerationService {
         }
 
         cache[key] = CacheEntry(createdAt: Date(), routes: routes)
-        logger.log("Generated \(routes.count) routes after \(attempt) attempt(s)")
+        logger.log("Done: \(routes.count) routes after \(attempt) attempt(s)")
         return routes
     }
 
@@ -188,80 +207,86 @@ actor RouteGenerationService {
         )
     }
 
-    private func buildLoop(start: CLLocationCoordinate2D, wp1: CLLocationCoordinate2D, wp2: CLLocationCoordinate2D) async throws -> LoopResult {
+    /// Build a 4-leg quadrilateral loop: start → wp1 → wpMid → wp2 → start.
+    private func buildLoop(start: CLLocationCoordinate2D,
+                           wp1: CLLocationCoordinate2D,
+                           wpMid: CLLocationCoordinate2D,
+                           wp2: CLLocationCoordinate2D) async throws -> LoopResult {
         if Task.isCancelled { throw CancellationError() }
-
         let leg1 = try await directions(from: start, to: wp1)
         if Task.isCancelled { throw CancellationError() }
-        let leg2 = try await directions(from: wp1, to: wp2)
+        let leg2 = try await directions(from: wp1,   to: wpMid)
         if Task.isCancelled { throw CancellationError() }
-        let leg3 = try await directions(from: wp2, to: start)
+        let leg3 = try await directions(from: wpMid, to: wp2)
         if Task.isCancelled { throw CancellationError() }
+        let leg4 = try await directions(from: wp2,   to: start)
 
-        let distance = leg1.distance + leg2.distance + leg3.distance
-        let time = leg1.expectedTravelTime + leg2.expectedTravelTime + leg3.expectedTravelTime
-        let coords = leg1.polyline.coordinates + leg2.polyline.coordinates + leg3.polyline.coordinates
+        let distance = leg1.distance + leg2.distance + leg3.distance + leg4.distance
+        let time     = leg1.expectedTravelTime + leg2.expectedTravelTime + leg3.expectedTravelTime + leg4.expectedTravelTime
+        let coords   = leg1.polyline.coordinates + leg2.polyline.coordinates + leg3.polyline.coordinates + leg4.polyline.coordinates
+        let steps    = (leg1.steps + leg2.steps + leg3.steps + leg4.steps).compactMap { NavigationStep.from(mapKitStep: $0) }
 
-        let steps = (leg1.steps + leg2.steps + leg3.steps)
-            .compactMap { NavigationStep.from(mapKitStep: $0) }
-
-        return LoopResult(
-            distanceMeters: distance,
-            expectedTravelTime: time,
-            polylineCoordinates: coords,
-            navigationSteps: steps
-        )
+        return LoopResult(distanceMeters: distance, expectedTravelTime: time,
+                          polylineCoordinates: coords, navigationSteps: steps)
     }
 
     private func directions(from: CLLocationCoordinate2D, to: CLLocationCoordinate2D) async throws -> MKRoute {
         if Task.isCancelled { throw CancellationError() }
 
         let request = MKDirections.Request()
-        request.source = MKMapItem(placemark: MKPlacemark(coordinate: from))
+        request.source      = MKMapItem(placemark: MKPlacemark(coordinate: from))
         request.destination = MKMapItem(placemark: MKPlacemark(coordinate: to))
         request.transportType = .walking
         request.requestsAlternateRoutes = false
 
-        let directions = MKDirections(request: request)
+        let dir = MKDirections(request: request)
         let token = UUID()
-        inFlight[token] = directions
+        inFlight[token] = dir
         defer { inFlight[token] = nil }
 
         return try await withTaskCancellationHandler {
             try await withCheckedThrowingContinuation { continuation in
-                directions.calculate { response, error in
+                dir.calculate { response, error in
                     if let error {
-                        continuation.resume(throwing: error)
+                        // Detect Apple's MKDirections rate-limit (GEOErrorDomain Code=-3).
+                        let ns = error as NSError
+                        if ns.domain == "GEOErrorDomain" && ns.code == -3 {
+                            var wait: Double = 32
+                            if let details = ns.userInfo["details"] as? [String: Any],
+                               let reset = details["timeUntilReset"] as? Double {
+                                wait = reset
+                            }
+                            continuation.resume(throwing: ThrottleError(waitSeconds: wait))
+                        } else {
+                            continuation.resume(throwing: error)
+                        }
                         return
                     }
                     guard let route = response?.routes.first else {
-                        continuation.resume(throwing: NSError(domain: "RouteGenerationService", code: 1, userInfo: [NSLocalizedDescriptionKey: "No routes returned"]))
+                        continuation.resume(throwing: NSError(domain: "RouteGenerationService", code: 1,
+                            userInfo: [NSLocalizedDescriptionKey: "No routes returned"]))
                         return
                     }
                     continuation.resume(returning: route)
                 }
             }
         } onCancel: {
-            directions.cancel()
+            dir.cancel()
         }
     }
 }
 
+// MARK: - CLLocation helpers
+
 private extension CLLocation {
-    /// Destination coordinate given distance and bearing (approximation on WGS84 sphere).
     func coordinate(atDistanceMeters distance: CLLocationDistance, bearingDegrees: CLLocationDegrees) -> CLLocationCoordinate2D {
         let distRadians = distance / 6_371_000.0
         let bearing = bearingDegrees * .pi / 180.0
-
-        let lat1 = coordinate.latitude * .pi / 180.0
+        let lat1 = coordinate.latitude  * .pi / 180.0
         let lon1 = coordinate.longitude * .pi / 180.0
-
         let lat2 = asin(sin(lat1) * cos(distRadians) + cos(lat1) * sin(distRadians) * cos(bearing))
-        let lon2 = lon1 + atan2(
-            sin(bearing) * sin(distRadians) * cos(lat1),
-            cos(distRadians) - sin(lat1) * sin(lat2)
-        )
-
+        let lon2 = lon1 + atan2(sin(bearing) * sin(distRadians) * cos(lat1),
+                                cos(distRadians) - sin(lat1) * sin(lat2))
         return CLLocationCoordinate2D(latitude: lat2 * 180.0 / .pi, longitude: lon2 * 180.0 / .pi)
     }
 }
