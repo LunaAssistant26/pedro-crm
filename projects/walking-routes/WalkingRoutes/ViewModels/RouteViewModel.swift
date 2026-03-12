@@ -56,7 +56,7 @@ final class RouteViewModel: ObservableObject {
 
         debounceTask = Task { [weak self] in
             // Wait until the user stops changing the slider for a moment.
-            try? await Task.sleep(nanoseconds: 800_000_000) // 800ms — gives time for previous requests to cancel
+            try? await Task.sleep(nanoseconds: 2_000_000_000) // 2s — wait until user stops sliding before firing
             guard !Task.isCancelled else { return }
             await self?.performGeneration(start: start, minutes: timeMinutes)
         }
