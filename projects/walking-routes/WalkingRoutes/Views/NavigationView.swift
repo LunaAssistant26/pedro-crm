@@ -404,7 +404,9 @@ struct RouteMapViewRepresentable: UIViewRepresentable {
 
     func makeUIView(context: Context) -> MKMapView {
         logger.log("Creating MKMapView (fitToRoute: \(fitToRoute))")
-        let mapView = MKMapView(frame: .zero)
+        // Use screen bounds (not .zero) — Metal renderer crashes with a zero-size frame,
+        // causing the entire navigation view to lock up.
+        let mapView = MKMapView(frame: UIScreen.main.bounds)
         mapView.showsCompass = true
         mapView.showsScale = false
         mapView.showsUserLocation = showsUserLocation
