@@ -20,7 +20,7 @@ struct ContentView: View {
     @State private var selectedTime: Int
     @State private var showFeedback = false
     @State private var lastGenerationCoordinate: CLLocationCoordinate2D? = nil
-    @AppStorage("forceDemoLocation") private var forceDemoLocation: Bool = true
+    @AppStorage("forceDemoLocation") private var forceDemoLocation: Bool = false
 
 
     var useLocation: Bool = true

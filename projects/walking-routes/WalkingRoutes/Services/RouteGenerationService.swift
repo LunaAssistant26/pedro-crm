@@ -64,9 +64,10 @@ actor RouteGenerationService {
         let seedSpeed: CLLocationDistance = 4.8 * 1000.0 / 3600.0
         let distanceBudgetMeters = seedSpeed * targetSeconds
 
-        // Calibrated for 4-leg geometry: total straight-line ≈ 4.17×r, MKDirections adds ~1.7×,
-        // so r ≈ budget / (4.17 × 1.7) ≈ budget × 0.141. Cap at 200m minimum.
-        var radiusMeters = max(200, distanceBudgetMeters * 0.14)
+        // Calibrated for 4-leg geometry on straight roads (factor ~1.2×):
+        // r ≈ budget / (4.17 × 1.2) ≈ budget × 0.20. Works well for suburban/rural terrain.
+        // Calibration loop handles winding terrain (Amsterdam canals etc) by scaling down if too long.
+        var radiusMeters = max(200, distanceBudgetMeters * 0.20)
 
         // 3 candidates evenly at 120° apart, each a 4-waypoint quadrilateral loop.
         // Placing the "peak" waypoint between the two side waypoints ensures a genuine loop
@@ -132,7 +133,7 @@ actor RouteGenerationService {
                 logger.log("Waiting \(Int(throttleWait + 2))s for rate limit reset…")
                 try await Task.sleep(nanoseconds: waitNs)
                 // Reset radius (start fresh after throttle).
-                radiusMeters = max(200, distanceBudgetMeters * 0.14)
+                radiusMeters = max(200, distanceBudgetMeters * 0.20)
                 continue
             }
 
