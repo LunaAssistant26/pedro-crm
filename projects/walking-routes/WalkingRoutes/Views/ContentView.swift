@@ -15,7 +15,7 @@ struct AppTheme {
 
 struct ContentView: View {
     @StateObject private var viewModel = RouteViewModel()
-    @StateObject private var locationManager = LocationManager()
+    @StateObject private var locationManager = LocationManager.shared
 
     @State private var selectedTime: Int
     @State private var showFeedback = false

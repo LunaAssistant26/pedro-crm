@@ -12,7 +12,8 @@ struct RouteNavigationView: View {
 
     @Environment(\.dismiss) private var dismiss
 
-    @StateObject private var locationManager = LocationManager()
+    // Use the shared singleton — already has a GPS fix from ContentView, so no cold-start delay.
+    @ObservedObject private var locationManager = LocationManager.shared
     @StateObject private var photoService = PhotoService.shared
     @StateObject private var navModel: RouteNavigationViewModel
 
@@ -629,6 +630,10 @@ final class NumberedPointAnnotation: MKPointAnnotation {
 // MARK: - Location
 
 final class LocationManager: NSObject, ObservableObject, CLLocationManagerDelegate {
+    /// Shared singleton — both ContentView and NavigationView use this so navigation
+    /// gets an instant GPS fix from the already-running manager (no cold-start delay).
+    static let shared = LocationManager()
+
     private let manager = CLLocationManager()
 
     @Published var currentCoordinate: CLLocationCoordinate2D?
