@@ -95,7 +95,6 @@ struct RouteNavigationView: View {
         .onDisappear {
             logger.log("NavigationView disappeared")
             locationManager.stopUpdating()
-            locationManager = nil
             navModel.disableDemoMode()
         }
         .onReceive(locationUpdates) { user in
@@ -365,11 +364,6 @@ struct RouteNavigationView: View {
     }
 
     // MARK: - Actions
-
-    private func setupLocationManager() {
-        locationManager = LocationManager()
-        logger.log("LocationManager initialized successfully")
-    }
 
     private func finishWalk() {
         RouteCompletionStore.markCompleted(route.id)
