@@ -77,20 +77,36 @@ actor RouteGenerationService {
         // 3 candidates at 120° apart, each a 3-leg triangle loop.
         // Triangle: start → wp1(b°, r) → wp2(b+120°, r) → start
         // 3 candidates × 3 legs = 9 requests (25% faster than 4-leg).
-        struct Candidate: Sendable {
+        struct Candidate {
             let id: String
             let wp1: CLLocationCoordinate2D
             let wp2: CLLocationCoordinate2D
+            let landmarks: [Landmark]
         }
 
         func makeCandidates(radius: CLLocationDistance) -> [Candidate] {
-            [(0.0, "A"), (120.0, "B"), (240.0, "C")].map { (offset, id) in
-                Candidate(
-                    id: id,
-                    wp1: startLocation.coordinate(atDistanceMeters: radius, bearingDegrees: offset),
-                    wp2: startLocation.coordinate(atDistanceMeters: radius, bearingDegrees: offset + 120)
-                )
-            }
+            let nearbyLandmarks = PointsOfInterest.landmarks(
+                near: [start],
+                maxDistanceMeters: radius * 1.5,
+                limit: 2
+            )
+
+            let bearingA_wp1 = startLocation.coordinate(atDistanceMeters: radius, bearingDegrees: 0)
+            let bearingA_wp2 = startLocation.coordinate(atDistanceMeters: radius, bearingDegrees: 120)
+            let bearingB_wp1 = startLocation.coordinate(atDistanceMeters: radius, bearingDegrees: 120)
+            let bearingB_wp2 = startLocation.coordinate(atDistanceMeters: radius, bearingDegrees: 240)
+            let bearingC_wp1 = startLocation.coordinate(atDistanceMeters: radius, bearingDegrees: 240)
+            let bearingC_wp2 = startLocation.coordinate(atDistanceMeters: radius, bearingDegrees: 360)
+
+            let aWp1 = nearbyLandmarks.first?.location.clLocation ?? bearingA_wp1
+            let aWp2 = nearbyLandmarks.dropFirst().first?.location.clLocation ?? bearingA_wp2
+            let aLandmarks = Array(nearbyLandmarks.prefix(2))
+
+            return [
+                Candidate(id: "A", wp1: aWp1, wp2: aWp2, landmarks: aLandmarks),
+                Candidate(id: "B", wp1: bearingB_wp1, wp2: bearingB_wp2, landmarks: []),
+                Candidate(id: "C", wp1: bearingC_wp1, wp2: bearingC_wp2, landmarks: [])
+            ]
         }
 
         var loops: [LoopResult] = []
@@ -110,7 +126,7 @@ actor RouteGenerationService {
             for c in candidates {
                 if Task.isCancelled { throw CancellationError() }
                 do {
-                    let loop = try await buildLoop(start: start, wp1: c.wp1, wp2: c.wp2)
+                    let loop = try await buildLoop(start: start, wp1: c.wp1, wp2: c.wp2, landmarks: c.landmarks)
                     loops.append(loop)
                 } catch is CancellationError {
                     throw CancellationError()
@@ -179,7 +195,7 @@ actor RouteGenerationService {
                 distance: distanceKm,
                 difficulty: distanceKm < 4 ? .easy : (distanceKm < 7 ? .moderate : .challenging),
                 category: .highlights,
-                landmarks: [],
+                landmarks: loop.landmarks,
                 coordinates: loop.polylineCoordinates.map { Location(latitude: $0.latitude, longitude: $0.longitude) },
                 navigationSteps: loop.navigationSteps,
                 imageURL: nil,
@@ -200,11 +216,12 @@ actor RouteGenerationService {
 
     // MARK: - Internals
 
-    private struct LoopResult: Sendable {
+    private struct LoopResult {
         let distanceMeters: CLLocationDistance
         let expectedTravelTime: TimeInterval
         let polylineCoordinates: [CLLocationCoordinate2D]
         let navigationSteps: [NavigationStep]
+        let landmarks: [Landmark]
     }
 
     private func cacheKey(for coordinate: CLLocationCoordinate2D, minutes: Int) -> CacheKey {
@@ -238,13 +255,14 @@ actor RouteGenerationService {
     /// Build a 3-leg triangle loop: start → wp1 → wp2 → start.
     private func buildLoop(start: CLLocationCoordinate2D,
                            wp1: CLLocationCoordinate2D,
-                           wp2: CLLocationCoordinate2D) async throws -> LoopResult {
+                           wp2: CLLocationCoordinate2D,
+                           landmarks: [Landmark] = []) async throws -> LoopResult {
         if Task.isCancelled { throw CancellationError() }
         let leg1 = try await directions(from: start, to: wp1)
         if Task.isCancelled { throw CancellationError() }
         let leg2 = try await directions(from: wp1,   to: wp2)
         if Task.isCancelled { throw CancellationError() }
-        let leg3 = try await directions(from: wp2,   to: start)
+        let leg3 = try await directions(from: wp2, to: start, preferAlternate: true)
 
         let distance = leg1.distance + leg2.distance + leg3.distance
         let time     = leg1.expectedTravelTime + leg2.expectedTravelTime + leg3.expectedTravelTime
@@ -252,17 +270,18 @@ actor RouteGenerationService {
         let steps    = (leg1.steps + leg2.steps + leg3.steps).compactMap { NavigationStep.from(mapKitStep: $0) }
 
         return LoopResult(distanceMeters: distance, expectedTravelTime: time,
-                          polylineCoordinates: coords, navigationSteps: steps)
+                          polylineCoordinates: coords, navigationSteps: steps,
+                          landmarks: landmarks)
     }
 
-    private func directions(from: CLLocationCoordinate2D, to: CLLocationCoordinate2D) async throws -> MKRoute {
+    private func directions(from: CLLocationCoordinate2D, to: CLLocationCoordinate2D, preferAlternate: Bool = false) async throws -> MKRoute {
         if Task.isCancelled { throw CancellationError() }
 
         let request = MKDirections.Request()
         request.source      = MKMapItem(placemark: MKPlacemark(coordinate: from))
         request.destination = MKMapItem(placemark: MKPlacemark(coordinate: to))
         request.transportType = .walking
-        request.requestsAlternateRoutes = false
+        request.requestsAlternateRoutes = preferAlternate
 
         let dir = MKDirections(request: request)
         let token = UUID()
@@ -289,12 +308,13 @@ actor RouteGenerationService {
                         }
                         return
                     }
-                    guard let route = response?.routes.first else {
+                    guard let routes = response?.routes, let firstRoute = routes.first else {
                         continuation.resume(throwing: NSError(domain: "RouteGenerationService", code: 1,
                             userInfo: [NSLocalizedDescriptionKey: "No routes returned"]))
                         return
                     }
-                    continuation.resume(returning: route)
+                    let selectedRoute = preferAlternate && routes.count > 1 ? routes[1] : firstRoute
+                    continuation.resume(returning: selectedRoute)
                 }
             }
         } onCancel: {
