@@ -121,9 +121,9 @@ final class RouteViewModel: ObservableObject {
                 }
                 self.logger.log("Generated routes: \(enriched.count)")
             } catch is CancellationError {
-                await MainActor.run {
-                    self.isLoading = false
-                }
+                // Don't set isLoading = false here — if we're cancelled, a new generation
+                // is starting and will set isLoading appropriately. Setting it false here
+                // creates a race where the cancelled task overwrites the new task's isLoading = true.
                 await self.generationService.cancelInFlightRequests()
                 self.logger.debug("Route generation cancelled")
             } catch {

@@ -6,13 +6,11 @@ import os.log
 /// Generates loop-only walking routes (start == end) around a given coordinate for a time budget.
 ///
 /// Design:
-/// - 3 candidates × 4 legs = 12 MKDirections requests per attempt (max 2 retries = 36 total).
-///   Well under Apple's 50 req/60s rate limit, even with rapid slider changes.
-/// - Each candidate uses 4 waypoints (quadrilateral loop), which forces routing through
-///   different streets and avoids walking back on the same road.
+/// - 3 candidates × 3 legs = 9 MKDirections requests per attempt (fast).
+/// - Triangle loops (start→wp1→wp2→start) minimize same-road backtracking.
 /// - Throttle detection: if Apple returns GEOErrorDomain -3, waits for reset before retry.
 /// - Iterative radius calibration: adjusts radius if routes are too short/long.
-/// - Short-lived cache (30s) to skip redundant calls for same inputs.
+/// - Short-lived cache (10s) to skip redundant calls for same inputs.
 actor RouteGenerationService {
 
     struct CacheKey: Hashable {
@@ -69,18 +67,12 @@ actor RouteGenerationService {
         // Calibration loop handles winding terrain (Amsterdam canals etc) by scaling down if too long.
         var radiusMeters = max(200, distanceBudgetMeters * 0.20)
 
-        // 3 candidates evenly at 120° apart, each a 4-waypoint quadrilateral loop.
-        // Placing the "peak" waypoint between the two side waypoints ensures a genuine loop
-        // and forces routing through different streets (avoids same-road backtracking).
-        //
-        //  Candidate layout (for offset b):
-        //    start → wp1(b°, r) → wpMid(b+60°, r×1.15) → wp2(b+120°, r) → start
-        //
-        // 3 candidates × 4 legs = 12 MKDirections requests per attempt.
+        // 3 candidates at 120° apart, each a 3-leg triangle loop.
+        // Triangle: start → wp1(b°, r) → wp2(b+120°, r) → start
+        // 3 candidates × 3 legs = 9 requests (25% faster than 4-leg).
         struct Candidate: Sendable {
             let id: String
             let wp1: CLLocationCoordinate2D
-            let wpMid: CLLocationCoordinate2D
             let wp2: CLLocationCoordinate2D
         }
 
@@ -88,9 +80,8 @@ actor RouteGenerationService {
             [(0.0, "A"), (120.0, "B"), (240.0, "C")].map { (offset, id) in
                 Candidate(
                     id: id,
-                    wp1:  startLocation.coordinate(atDistanceMeters: radius,        bearingDegrees: offset),
-                    wpMid: startLocation.coordinate(atDistanceMeters: radius * 1.15, bearingDegrees: offset + 60),
-                    wp2:  startLocation.coordinate(atDistanceMeters: radius,        bearingDegrees: offset + 120)
+                    wp1: startLocation.coordinate(atDistanceMeters: radius, bearingDegrees: offset),
+                    wp2: startLocation.coordinate(atDistanceMeters: radius, bearingDegrees: offset + 120)
                 )
             }
         }
@@ -209,24 +200,21 @@ actor RouteGenerationService {
         )
     }
 
-    /// Build a 4-leg quadrilateral loop: start → wp1 → wpMid → wp2 → start.
+    /// Build a 3-leg triangle loop: start → wp1 → wp2 → start.
     private func buildLoop(start: CLLocationCoordinate2D,
                            wp1: CLLocationCoordinate2D,
-                           wpMid: CLLocationCoordinate2D,
                            wp2: CLLocationCoordinate2D) async throws -> LoopResult {
         if Task.isCancelled { throw CancellationError() }
         let leg1 = try await directions(from: start, to: wp1)
         if Task.isCancelled { throw CancellationError() }
-        let leg2 = try await directions(from: wp1,   to: wpMid)
+        let leg2 = try await directions(from: wp1,   to: wp2)
         if Task.isCancelled { throw CancellationError() }
-        let leg3 = try await directions(from: wpMid, to: wp2)
-        if Task.isCancelled { throw CancellationError() }
-        let leg4 = try await directions(from: wp2,   to: start)
+        let leg3 = try await directions(from: wp2,   to: start)
 
-        let distance = leg1.distance + leg2.distance + leg3.distance + leg4.distance
-        let time     = leg1.expectedTravelTime + leg2.expectedTravelTime + leg3.expectedTravelTime + leg4.expectedTravelTime
-        let coords   = leg1.polyline.coordinates + leg2.polyline.coordinates + leg3.polyline.coordinates + leg4.polyline.coordinates
-        let steps    = (leg1.steps + leg2.steps + leg3.steps + leg4.steps).compactMap { NavigationStep.from(mapKitStep: $0) }
+        let distance = leg1.distance + leg2.distance + leg3.distance
+        let time     = leg1.expectedTravelTime + leg2.expectedTravelTime + leg3.expectedTravelTime
+        let coords   = leg1.polyline.coordinates + leg2.polyline.coordinates + leg3.polyline.coordinates
+        let steps    = (leg1.steps + leg2.steps + leg3.steps).compactMap { NavigationStep.from(mapKitStep: $0) }
 
         return LoopResult(distanceMeters: distance, expectedTravelTime: time,
                           polylineCoordinates: coords, navigationSteps: steps)
