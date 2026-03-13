@@ -26,6 +26,11 @@ final class RouteNavigationViewModel: ObservableObject {
 
     private var demoAdvanceTask: Task<Void, Never>?
 
+    // Direction detection — checked once after user walks ~80m from start
+    private var directionChecked = false
+    private var lastKnownCoord: CLLocationCoordinate2D?
+    private var distanceTraveled: CLLocationDistance = 0
+
     init(route: Route) {
         self.route = route
     }
@@ -98,9 +103,42 @@ final class RouteNavigationViewModel: ObservableObject {
 
     func handleLocationUpdate(_ user: CLLocationCoordinate2D) {
         guard !isDemoMode else { return }
+        checkWalkingDirection(user: user)   // detect reverse walking early, before anything else
         updateDistanceToNext(user: user)
         advanceStepIfNeeded(user: user)
         updateOffRoute(user: user)
+    }
+
+    /// After ~80m of walking, check if user is heading toward the END of the route instead of the start.
+    /// If so, reverse the step order so they can walk the loop in their chosen direction.
+    private func checkWalkingDirection(user: CLLocationCoordinate2D) {
+        guard !directionChecked, steps.count > 3 else { return }
+
+        // Accumulate distance from previous position
+        if let last = lastKnownCoord {
+            distanceTraveled += CLLocation(latitude: last.latitude, longitude: last.longitude)
+                .distance(from: CLLocation(latitude: user.latitude, longitude: user.longitude))
+        }
+        lastKnownCoord = user
+
+        guard distanceTraveled >= 80 else { return }   // wait until ~80m walked
+        directionChecked = true
+
+        // Compare distance to step 1 (forward direction) vs last step (reverse direction)
+        guard let firstStep = steps.first, let lastStep = steps.last else { return }
+        let firstCoord = firstStep.coordinate
+        let lastCoord  = lastStep.coordinate
+
+        let userLoc     = CLLocation(latitude: user.latitude, longitude: user.longitude)
+        let distToFirst = userLoc.distance(from: CLLocation(latitude: firstCoord.latitude, longitude: firstCoord.longitude))
+        let distToLast  = userLoc.distance(from: CLLocation(latitude: lastCoord.latitude,  longitude: lastCoord.longitude))
+
+        // If the user is meaningfully closer to the LAST step, they're walking in reverse
+        if distToLast < distToFirst * 0.6 {
+            steps = steps.reversed()
+            currentStepIndex = 0
+            UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+        }
     }
 
     func enableDemoMode() {
