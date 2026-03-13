@@ -9,6 +9,7 @@
 /* Begin PBXBuildFile section */
 		1B34CD3DC15CFFD1740F22CE /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5AF3E278D6DCEA7CE850622B /* ContentView.swift */; };
 		5997E804B23B8914F3ED34DA /* RouteDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7CE03D0B6CAA8666BCF32FBB /* RouteDetailView.swift */; };
+		A1B2C3D4E5F6A7B8C9D0E001 /* LocationSearchView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6A7B8C9D0E002 /* LocationSearchView.swift */; };
 		96407EAB07F4BFED432F6AED /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 6081B2AAE4AB0377E8AE329E /* Foundation.framework */; };
 		AA1702355CE5C6C63639A219 /* RouteViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3FCB5A6A6DB1630B3C23397D /* RouteViewModel.swift */; };
 		B2C3D4E5F6G7H8I9J0K1L2M3 /* FeedbackView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3D4E5F6G7H8I9J0K1L2M3N4 /* FeedbackView.swift */; };
@@ -55,6 +56,7 @@
 		5AF3E278D6DCEA7CE850622B /* ContentView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ContentView.swift; path = Views/ContentView.swift; sourceTree = "<group>"; };
 		6081B2AAE4AB0377E8AE329E /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS18.0.sdk/System/Library/Frameworks/Foundation.framework; sourceTree = DEVELOPER_DIR; };
 		7CE03D0B6CAA8666BCF32FBB /* RouteDetailView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = RouteDetailView.swift; path = Views/RouteDetailView.swift; sourceTree = "<group>"; };
+		A1B2C3D4E5F6A7B8C9D0E002 /* LocationSearchView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LocationSearchView.swift; path = Views/LocationSearchView.swift; sourceTree = "<group>"; };
 		A1B2C3D4E5F6G7H8I9J0K1L2 /* LandmarkDetailView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LandmarkDetailView.swift; path = Views/LandmarkDetailView.swift; sourceTree = "<group>"; };
 		B2C3D4E5F6G7H8I9J0K1L2M3N4 /* LandmarkCard.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LandmarkCard.swift; path = Views/LandmarkCard.swift; sourceTree = "<group>"; };
 		C3D4E5F6G7H8I9J0K1L2M3N4O5 /* LandmarkListView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LandmarkListView.swift; path = Views/LandmarkListView.swift; sourceTree = "<group>"; };
@@ -142,6 +144,7 @@
 				4DAB48E5EDDD4DD609E00C1B /* NavigationView.swift */,
 				61D50A7596494FDEBCE71FF2 /* MuterVideoPreviewView.swift */,
 				7CE03D0B6CAA8666BCF32FBB /* RouteDetailView.swift */,
+				A1B2C3D4E5F6A7B8C9D0E002 /* LocationSearchView.swift */,
 				50B4B0372746FF8DFD01FDA2 /* TimeSelectorView.swift */,
 				A1B2C3D4E5F6G7H8I9J0K1L2 /* LandmarkDetailView.swift */,
 				B2C3D4E5F6G7H8I9J0K1L2M3N4 /* LandmarkCard.swift */,
@@ -246,6 +249,7 @@
 				C59A1397B8011D156511AE99 /* NavigationView.swift in Sources */,
 				374911B19BE746D7A443D0F1 /* MuterVideoPreviewView.swift in Sources */,
 				5997E804B23B8914F3ED34DA /* RouteDetailView.swift in Sources */,
+				A1B2C3D4E5F6A7B8C9D0E001 /* LocationSearchView.swift in Sources */,
 				DDC33299D6BCDA046302249E /* TimeSelectorView.swift in Sources */,
 				F1A2B3C4D5E6F7G8H9I0J1K2 /* LandmarkDetailView.swift in Sources */,
 				G2H3I4J5K6L7M8N9O0P1Q2R3 /* LandmarkCard.swift in Sources */,

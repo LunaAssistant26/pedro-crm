@@ -22,6 +22,10 @@ struct ContentView: View {
     @State private var lastGenerationCoordinate: CLLocationCoordinate2D? = nil
     @AppStorage("forceDemoLocation") private var forceDemoLocation: Bool = false
 
+    // Custom location search (plan-ahead mode)
+    @State private var customLocation: SearchedLocation? = nil
+    @State private var showLocationSearch = false
+
 
     var useLocation: Bool = true
 
@@ -130,6 +134,13 @@ struct ContentView: View {
             .sheet(isPresented: $showFeedback) {
                 FeedbackView()
             }
+            .sheet(isPresented: $showLocationSearch) {
+                LocationSearchView(selectedLocation: $customLocation)
+            }
+            .onChange(of: customLocation) { loc in
+                guard loc != nil else { return }
+                regenerate()
+            }
         }
         .onAppear {
             lastGenerationCoordinate = locationManager.currentCoordinate
@@ -167,6 +178,11 @@ struct ContentView: View {
 
     private func regenerate() {
         logger.log("Regenerating routes. minutes=\(selectedTime)")
+        // Custom searched location takes priority over live GPS
+        if let custom = customLocation {
+            viewModel.generateRoutes(timeMinutes: selectedTime, userCoordinate: custom.coordinate, locationAuthorized: true)
+            return
+        }
         let authorized = useLocation ? (locationManager.isAuthorized || locationManager.currentCoordinate != nil) : false
         let coordinate = useLocation ? locationManager.currentCoordinate : nil
         viewModel.generateRoutes(timeMinutes: selectedTime, userCoordinate: coordinate, locationAuthorized: authorized)
@@ -183,16 +199,52 @@ struct ContentView: View {
                     .font(.headline)
                     .foregroundStyle(AppTheme.primaryText)
                 Spacer()
-                Color.clear.frame(width: 30, height: 30)
+                // Search location button
+                Button {
+                    showLocationSearch = true
+                } label: {
+                    Image(systemName: customLocation == nil ? "mappin.and.ellipse" : "mappin.and.ellipse.circle.fill")
+                        .font(.system(size: 22))
+                        .foregroundStyle(customLocation == nil ? AppTheme.secondaryText : AppTheme.primaryColor)
+                }
             }
 
             Text("Pick a time. Get a loop.")
                 .font(.title2.weight(.bold))
                 .foregroundStyle(AppTheme.primaryText)
 
-            Text("\(viewModel.routes.count) loop options")
+            Text("\(viewModel.routes.filter { !RouteReportStore.isReported($0.id) }.count) loop options")
                 .font(.system(size: 34, weight: .heavy, design: .rounded))
                 .foregroundStyle(AppTheme.primaryText)
+
+            // Planning-ahead pill
+            if let loc = customLocation {
+                HStack(spacing: 6) {
+                    Image(systemName: "mappin.circle.fill")
+                        .foregroundStyle(AppTheme.primaryColor)
+                    VStack(alignment: .leading, spacing: 1) {
+                        Text("Planning from")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                        Text(loc.name)
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(AppTheme.primaryText)
+                            .lineLimit(1)
+                    }
+                    Spacer()
+                    Button {
+                        customLocation = nil
+                        regenerate()
+                    } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 8)
+                .background(AppTheme.primaryColor.opacity(0.08))
+                .clipShape(RoundedRectangle(cornerRadius: 10))
+            }
         }
     }
 
