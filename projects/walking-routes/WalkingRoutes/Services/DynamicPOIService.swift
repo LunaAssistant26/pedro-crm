@@ -16,20 +16,11 @@ actor DynamicPOIService {
         let createdAt: Date
     }
 
-    // POI categories to look for along walking routes
-    private static let categories: [MKPointOfInterestCategory] = {
-        var cats: [MKPointOfInterestCategory] = [
-            .museum, .park, .nationalPark,
-            .theater, .library, .university,
-            .restaurant, .cafe, .bakery,
-            .beach, .zoo, .aquarium,
-            .stadium,
-        ]
-        if #available(iOS 18.0, *) {
-            cats += [.landmark, .castle]
-        }
-        return cats
-    }()
+    // Minimum Google rating for cultural/landmark POIs (food uses 4.4)
+    private static let minCulturalRating: Double = 4.0
+
+    // Food categories — these go through the 4.4 rating filter
+    private static let foodCategories: Set<MKPointOfInterestCategory> = [.restaurant, .cafe, .bakery]
 
     // MARK: - Public API
 
@@ -56,20 +47,30 @@ actor DynamicPOIService {
             longitudinalMeters: radius * 2
         )
 
+        // No category filter — let Apple return everything (banks, churches, monuments, etc.)
+        // Google Places acts as the quality gate: only POIs with a real rating are shown.
+        // This catches famous landmarks (Domtoren, cathedrals, monuments) that Apple only
+        // exposes via .landmark/.castle categories which require iOS 18+.
         let request = MKLocalPointsOfInterestRequest(center: center, radius: radius)
-        request.pointOfInterestFilter = MKPointOfInterestFilter(including: Self.categories)
+        // pointOfInterestFilter intentionally left as default (nil = all categories)
 
         do {
             let search = MKLocalSearch(request: request)
             let response = try await search.start()
             let candidates = response.mapItems.compactMap { Landmark.from(mapItem: $0) }
-            let nearby = filterAndSort(candidates, polyline: polyline, maxDist: maxDistanceMeters, limit: limit * 3)
 
-            // Enrich with Google Places (rating, hours, photos). Filter restaurants/cafés < 4.4.
+            // Larger initial pool because unfiltered search returns noise (banks, ATMs, etc.)
+            let nearby = filterAndSort(candidates, polyline: polyline, maxDist: maxDistanceMeters, limit: limit * 6)
+
+            // Enrich every POI with Google Places.
+            // Rule: only show POIs that have a Google rating.
+            //   - Food (restaurant/café/bakery): require ≥ 4.4
+            //   - Cultural/landmark:             require ≥ 4.0
+            //   - No Google match or below threshold → drop silently
             var enriched: [Landmark] = []
             for landmark in nearby {
-                let isFood = landmark.tags.contains(where: { ["dining", "food", "cafe"].contains($0) })
-                let minRating: Double? = isFood ? 4.4 : nil
+                let isFood = landmark.isFoodSpot
+                let minRating: Double = isFood ? 4.4 : Self.minCulturalRating
                 let coord = CLLocationCoordinate2D(latitude: landmark.location.latitude,
                                                   longitude: landmark.location.longitude)
                 if let gDetail = await GooglePlacesService.shared.detail(
@@ -78,24 +79,21 @@ actor DynamicPOIService {
                     minRating: minRating
                 ) {
                     enriched.append(landmark.enriched(with: gDetail))
-                } else if !isFood {
-                    // Non-food POIs shown even without Google data
-                    enriched.append(landmark)
                 }
-                // Food POIs without Google match (or below 4.4) are silently dropped
+                // Any POI without a Google rating is dropped (no exceptions)
                 if enriched.count >= limit { break }
             }
 
-            // Fallback: if food filter left us with very few results, relax to 4.0
-            if enriched.filter({ $0.tags.contains(where: { ["dining","food","cafe"].contains($0) }) }).isEmpty {
-                for landmark in nearby where landmark.tags.contains(where: { ["dining","food","cafe"].contains($0) }) {
+            // Fallback: if food filter left nothing, relax to 4.0 for food too
+            let foodInEnriched = enriched.filter { $0.isFoodSpot }
+            if foodInEnriched.isEmpty {
+                for landmark in nearby where landmark.isFoodSpot {
                     let coord = CLLocationCoordinate2D(latitude: landmark.location.latitude,
                                                       longitude: landmark.location.longitude)
                     if let gDetail = await GooglePlacesService.shared.detail(
                         name: landmark.name, coordinate: coord, minRating: 4.0
                     ) {
-                        var fallback = landmark.enriched(with: gDetail)
-                        enriched.append(fallback)
+                        enriched.append(landmark.enriched(with: gDetail))
                         if enriched.count >= limit { break }
                     }
                 }
@@ -225,7 +223,7 @@ extension Landmark {
     }
 
     private static func description(for category: MKPointOfInterestCategory?, name: String) -> String {
-        guard let category else { return "Point of interest along your route." }
+        guard let category else { return "Notable stop along your route." }
         switch category {
         case .museum:       return "Museum worth visiting along your route."
         case .park:         return "Park — a great spot to rest or explore."
@@ -240,6 +238,8 @@ extension Landmark {
         case .zoo:          return "Zoo or wildlife attraction."
         case .aquarium:     return "Aquarium."
         case .stadium:      return "Stadium or sports venue."
+        case .nightlife:    return "Bar or nightlife venue."
+        case .hotel:        return "Hotel or accommodation."
         default:
             if #available(iOS 18.0, *) {
                 switch category {
@@ -248,23 +248,25 @@ extension Landmark {
                 default: break
                 }
             }
-            return "Point of interest along your route."
+            // Church, monument, historical site, or other cultural POI
+            return "Landmark worth a look on your walk."
         }
     }
 
     private static func tags(for category: MKPointOfInterestCategory?) -> [String] {
-        guard let category else { return ["point-of-interest"] }
+        guard let category else { return ["landmark", "culture"] }
         switch category {
-        case .museum:       return ["museum", "culture"]
-        case .park, .nationalPark: return ["park", "outdoor", "free"]
-        // .landmark and .castle are iOS 18+ — handled in default below
-        case .theater:      return ["theater", "culture"]
-        case .library:      return ["library", "free"]
-        case .university:   return ["university"]
-        case .restaurant:   return ["dining", "food"]
-        case .cafe, .bakery: return ["cafe", "food"]
-        case .beach:        return ["outdoor", "beach"]
-        case .zoo, .aquarium: return ["attraction", "family-friendly"]
+        case .museum:                  return ["museum", "culture"]
+        case .park, .nationalPark:     return ["park", "outdoor", "free"]
+        case .theater:                 return ["theater", "culture"]
+        case .library:                 return ["library", "free"]
+        case .university:              return ["university"]
+        case .restaurant:              return ["dining", "food"]
+        case .cafe, .bakery:           return ["cafe", "food"]
+        case .beach:                   return ["outdoor", "beach"]
+        case .zoo, .aquarium:          return ["attraction", "family-friendly"]
+        case .nightlife:               return ["nightlife", "food"]
+        case .hotel:                   return ["hotel"]
         default:
             if #available(iOS 18.0, *) {
                 switch category {
@@ -272,7 +274,8 @@ extension Landmark {
                 default: break
                 }
             }
-            return ["point-of-interest"]
+            // Catch-all for churches, monuments, historical sites (no specific iOS 16 category)
+            return ["landmark", "culture"]
         }
     }
 

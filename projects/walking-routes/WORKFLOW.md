@@ -2,12 +2,12 @@
 
 ## Roles
 
-| Role | Who |
-|------|-----|
-| **Product Owner** | Pedro |
-| **Program Manager** | Luna (coordinates, decides scope, reports) |
-| **Developer** | Claude Code subagent (implements, builds, commits) |
-| **QA Engineer** | Claude Code subagent (code review, test checklist) |
+| Role | Who | Model |
+|------|-----|-------|
+| **Product Owner** | Pedro | — |
+| **Program Manager** | Luna (coordinates, decides scope, reports) | Claude Sonnet |
+| **Developer** | Subagent (implements, builds, commits) | GPT-5.4 |
+| **QA Engineer** | Subagent (code review, test checklist) | GPT-5.4 |
 
 ---
 

@@ -15,8 +15,9 @@ struct RouteDetailView: View {
     // Food spots the user has opted to add to their walk
     @State private var addedFoodSpotIDs: Set<UUID> = []
 
-    private var culturalLandmarks: [Landmark] { route.landmarks.filter { !$0.isFoodSpot } }
-    private var foodLandmarks: [Landmark]     { route.landmarks.filter {  $0.isFoodSpot } }
+    // Only show landmarks that have a real Google rating — no rating = not interesting enough
+    private var culturalLandmarks: [Landmark] { route.landmarks.filter { !$0.isFoodSpot && $0.rating != nil } }
+    private var foodLandmarks: [Landmark]     { route.landmarks.filter {  $0.isFoodSpot && $0.rating != nil } }
     private var addedFoodSpots: [Landmark]    { foodLandmarks.filter { addedFoodSpotIDs.contains($0.id) } }
 
     private let logger = Logger(subsystem: "com.walkingroutes", category: "RouteDetailView")
