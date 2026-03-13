@@ -92,6 +92,35 @@ struct RouteNavigationView: View {
                 .padding(.horizontal)
                 .padding(.top, 8)
 
+                // Off-route / Recalculating banner
+                if navModel.isRerouting {
+                    HStack(spacing: 8) {
+                        ProgressView().tint(.white).controlSize(.small)
+                        Text("Recalculating…")
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(.white)
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 10)
+                    .background(Color.orange)
+                    .clipShape(Capsule())
+                    .padding(.top, 8)
+                    .transition(.move(edge: .top).combined(with: .opacity))
+                } else if navModel.isOffRoute {
+                    HStack(spacing: 6) {
+                        Image(systemName: "exclamationmark.triangle.fill")
+                        Text("Off route — returning you to path")
+                            .font(.subheadline.weight(.semibold))
+                    }
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 10)
+                    .background(Color.red.opacity(0.85))
+                    .clipShape(Capsule())
+                    .padding(.top, 8)
+                    .transition(.move(edge: .top).combined(with: .opacity))
+                }
+
                 Spacer()
             }
 
@@ -204,6 +233,13 @@ struct RouteNavigationView: View {
             guard isLast, !didFinish else { return }
             didFinish = true
             endWalk()
+        }
+        .onChange(of: navModel.isOffRoute) { offRoute in
+            guard offRoute, !isDemoMode else { return }
+            guard let coord = locationManager.currentCoordinate else { return }
+            withAnimation(.easeInOut(duration: 0.3)) {
+                navModel.reroute(from: coord)
+            }
         }
         // ── Sheets ──
         .sheet(isPresented: $showCamera) {

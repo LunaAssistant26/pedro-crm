@@ -13,6 +13,7 @@ final class RouteNavigationViewModel: ObservableObject {
 
     @Published var isOffRoute: Bool = false
     @Published var offRouteDistanceMeters: CLLocationDistance?
+    @Published var isRerouting: Bool = false
 
     private let route: Route
     private let offRouteThresholdMeters: CLLocationDistance = 60
@@ -148,6 +149,7 @@ final class RouteNavigationViewModel: ObservableObject {
         guard let target = nextManeuverCoordinate else { return }
 
         lastRerouteAt = Date()
+        isRerouting = true
 
         Task {
             do {
@@ -155,18 +157,20 @@ final class RouteNavigationViewModel: ObservableObject {
 
                 // Prepend mini-route steps, then continue with remaining original steps.
                 let remaining = steps.dropFirst(min(currentStepIndex, steps.count))
-                let merged = mini + remaining
+                let merged = Array(mini + remaining)
 
                 await MainActor.run {
                     self.steps = merged
                     self.currentStepIndex = 0
                     self.isOffRoute = false
                     self.offRouteSince = nil
+                    self.isRerouting = false
                 }
 
                 UIImpactFeedbackGenerator(style: .medium).impactOccurred()
             } catch {
-                // If reroute fails, keep current steps.
+                // Reroute failed — clear rerouting state and keep current steps.
+                await MainActor.run { self.isRerouting = false }
             }
         }
     }
