@@ -35,7 +35,15 @@ struct RouteDetailView: View {
                 }
                 .padding(.horizontal)
 
-                // Start button
+                // Start button — uses NavigationLink (programmatic) instead of fullScreenCover.
+                // fullScreenCover inside a NavigationStack destination is unreliable in SwiftUI
+                // and silently fails to present on some iOS versions, leaving the button faded/stuck.
+                NavigationLink(
+                    destination: RouteNavigationView(route: route, useLocation: AppFlags.useRealGPSNavigation),
+                    isActive: $showNavigation
+                ) { EmptyView() }
+                    .hidden()
+
                 Button {
                     showNavigation = true
                 } label: {
@@ -82,10 +90,6 @@ struct RouteDetailView: View {
                     showGrouping: true
                 )
             }
-        }
-        .fullScreenCover(isPresented: $showNavigation) {
-            // Default to demo navigation (no GPS) for smoother demos. Real GPS nav can be enabled via UserDefaults.
-            RouteNavigationView(route: route, useLocation: AppFlags.useRealGPSNavigation)
         }
         .sheet(isPresented: $showShareSheet) {
             ShareSheetView(route: route)
