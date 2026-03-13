@@ -46,6 +46,7 @@ struct RouteNavigationView: View {
                     showsUserLocation: false,
                     followUser: !isDemoMode,
                     userCoordinate: isDemoMode ? nil : locationManager.currentCoordinate,
+                    userHeading: isDemoMode ? nil : locationManager.currentHeading,
                     showsNumberedPins: true,
                     fitToRoute: false
                 )
@@ -249,6 +250,7 @@ struct RouteMapViewRepresentable: UIViewRepresentable {
     var showsUserLocation: Bool = false
     var followUser: Bool = false
     var userCoordinate: CLLocationCoordinate2D?
+    var userHeading: CLLocationDirection?   // degrees, nil = no arrow
     var showsNumberedPins: Bool = false
     var fitToRoute: Bool = false
 
@@ -305,12 +307,15 @@ struct RouteMapViewRepresentable: UIViewRepresentable {
             context.coordinator.drawWalkingRoute(points: points, on: mapView)
         }
 
+        // User location puck (custom blue dot + heading arrow — avoids MKCoreLocationProvider conflict)
+        context.coordinator.updateUserPuck(coordinate: userCoordinate, heading: userHeading, on: mapView)
+
         // Camera: follow GPS when available, else center on route start
         if followUser, let coord = userCoordinate {
-            let span   = MKCoordinateSpan(latitudeDelta: 0.005, longitudeDelta: 0.005)
+            let span = MKCoordinateSpan(latitudeDelta: 0.005, longitudeDelta: 0.005)
             mapView.setRegion(MKCoordinateRegion(center: coord, span: span), animated: true)
         } else if !fitToRoute, let first = route.pathCoordinates.first {
-            let span   = MKCoordinateSpan(latitudeDelta: 0.01, longitudeDelta: 0.01)
+            let span = MKCoordinateSpan(latitudeDelta: 0.01, longitudeDelta: 0.01)
             mapView.setRegion(MKCoordinateRegion(center: first, span: span), animated: false)
         }
     }
@@ -333,6 +338,30 @@ struct RouteMapViewRepresentable: UIViewRepresentable {
 
         func hasRouteChanged(to id: UUID) -> Bool { drawnRouteId != id }
         func markRouteDrawn(_ id: UUID)           { drawnRouteId = id }
+
+        // MARK: User puck
+        private var userPuck: UserPuckAnnotation?
+
+        func updateUserPuck(coordinate: CLLocationCoordinate2D?, heading: CLLocationDirection?, on mapView: MKMapView) {
+            guard let coord = coordinate else {
+                if let existing = userPuck { mapView.removeAnnotation(existing) }
+                userPuck = nil
+                return
+            }
+            if let existing = userPuck {
+                UIView.animate(withDuration: 0.3) {
+                    existing.coordinate = coord
+                    existing.heading = heading
+                    if let view = mapView.view(for: existing) as? UserPuckAnnotationView {
+                        view.updateHeading(heading)
+                    }
+                }
+            } else {
+                let puck = UserPuckAnnotation(coordinate: coord, heading: heading)
+                userPuck = puck
+                mapView.addAnnotation(puck)
+            }
+        }
 
         func drawWalkingRoute(points: [CLLocationCoordinate2D], on mapView: MKMapView) {
             let key = points.map { "\($0.latitude),\($0.longitude)" }.joined(separator: "|")
@@ -366,6 +395,14 @@ struct RouteMapViewRepresentable: UIViewRepresentable {
         }
 
         func mapView(_ mapView: MKMapView, viewFor annotation: MKAnnotation) -> MKAnnotationView? {
+            if let puck = annotation as? UserPuckAnnotation {
+                let id = "UserPuck"
+                let view = (mapView.dequeueReusableAnnotationView(withIdentifier: id) as? UserPuckAnnotationView)
+                    ?? UserPuckAnnotationView(annotation: annotation, reuseIdentifier: id)
+                view.annotation = puck
+                view.updateHeading(puck.heading)
+                return view
+            }
             guard let numbered = annotation as? NumberedPointAnnotation else { return nil }
             let id = "NumberedPin"
             let view = mapView.dequeueReusableAnnotationView(withIdentifier: id)
@@ -373,6 +410,79 @@ struct RouteMapViewRepresentable: UIViewRepresentable {
             view.annotation = numbered
             return view
         }
+    }
+}
+
+// MARK: - User Location Puck
+
+final class UserPuckAnnotation: NSObject, MKAnnotation {
+    dynamic var coordinate: CLLocationCoordinate2D
+    var heading: CLLocationDirection?
+    init(coordinate: CLLocationCoordinate2D, heading: CLLocationDirection?) {
+        self.coordinate = coordinate
+        self.heading = heading
+    }
+}
+
+/// Apple Maps–style blue dot with a direction wedge.
+final class UserPuckAnnotationView: MKAnnotationView {
+    private let size: CGFloat = 22
+    private let pulseLayer = CALayer()
+    private var arrowLayer: CAShapeLayer?
+
+    override init(annotation: MKAnnotation?, reuseIdentifier: String?) {
+        super.init(annotation: annotation, reuseIdentifier: reuseIdentifier)
+        backgroundColor = .clear
+        frame = CGRect(origin: .zero, size: CGSize(width: size, height: size))
+        centerOffset = .zero
+        isEnabled = false
+
+        // Outer pulse ring
+        let pulse = CALayer()
+        let pSize: CGFloat = size + 12
+        pulse.frame = CGRect(x: -(pSize - size) / 2, y: -(pSize - size) / 2, width: pSize, height: pSize)
+        pulse.cornerRadius = pSize / 2
+        pulse.backgroundColor = UIColor.systemBlue.withAlphaComponent(0.15).cgColor
+        layer.addSublayer(pulse)
+        pulseLayer.frame = pulse.bounds
+
+        // White shadow ring
+        let ring = CALayer()
+        ring.frame = CGRect(x: -1, y: -1, width: size + 2, height: size + 2)
+        ring.cornerRadius = (size + 2) / 2
+        ring.backgroundColor = UIColor.white.cgColor
+        layer.addSublayer(ring)
+
+        // Blue dot
+        let dot = CALayer()
+        dot.frame = CGRect(x: 0, y: 0, width: size, height: size)
+        dot.cornerRadius = size / 2
+        dot.backgroundColor = UIColor.systemBlue.cgColor
+        layer.addSublayer(dot)
+    }
+    required init?(coder: NSCoder) { fatalError() }
+
+    func updateHeading(_ heading: CLLocationDirection?) {
+        // Remove old arrow
+        arrowLayer?.removeFromSuperlayer()
+        arrowLayer = nil
+
+        guard let heading else { return }
+
+        // Direction wedge — white triangle on top of the dot
+        let arrow = CAShapeLayer()
+        let w: CGFloat = 8, h: CGFloat = 12
+        let path = UIBezierPath()
+        path.move(to:    CGPoint(x: 0,    y: -h))    // tip
+        path.addLine(to: CGPoint(x:  w/2, y:  0))
+        path.addLine(to: CGPoint(x: -w/2, y:  0))
+        path.close()
+        arrow.path      = path.cgPath
+        arrow.fillColor = UIColor.white.cgColor
+        arrow.position  = CGPoint(x: size / 2, y: size / 2)
+        arrow.transform = CATransform3DMakeRotation(CGFloat(heading) * .pi / 180, 0, 0, 1)
+        layer.addSublayer(arrow)
+        arrowLayer = arrow
     }
 }
 
@@ -384,6 +494,7 @@ final class LocationManager: NSObject, ObservableObject, CLLocationManagerDelega
     private let manager = CLLocationManager()
 
     @Published var currentCoordinate: CLLocationCoordinate2D?
+    @Published var currentHeading: CLLocationDirection?   // degrees from true north
     @Published var authorizationStatus: CLAuthorizationStatus = .notDetermined
 
     private let logger = Logger(subsystem: "com.walkingroutes", category: "LocationManager")
@@ -413,10 +524,15 @@ final class LocationManager: NSObject, ObservableObject, CLLocationManagerDelega
         refreshAuthorizationStatus()
         guard isAuthorized else { manager.requestWhenInUseAuthorization(); return }
         manager.startUpdatingLocation()
+        if CLLocationManager.headingAvailable() {
+            manager.headingFilter = 5   // degrees — don't spam on tiny changes
+            manager.startUpdatingHeading()
+        }
     }
 
     func stopUpdating() {
         manager.stopUpdatingLocation()
+        manager.stopUpdatingHeading()
     }
 
     func requestAuthorizationIfNeeded() {
@@ -439,6 +555,11 @@ final class LocationManager: NSObject, ObservableObject, CLLocationManagerDelega
 
     func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
         logger.warning("Location error: \(error.localizedDescription)")
+    }
+
+    func locationManager(_ manager: CLLocationManager, didUpdateHeading newHeading: CLHeading) {
+        guard newHeading.headingAccuracy >= 0 else { return }
+        DispatchQueue.main.async { self.currentHeading = newHeading.trueHeading }
     }
 
     func locationManager(_ manager: CLLocationManager, didChangeAuthorization status: CLAuthorizationStatus) {
