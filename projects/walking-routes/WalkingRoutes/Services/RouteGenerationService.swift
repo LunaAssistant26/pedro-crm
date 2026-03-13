@@ -225,7 +225,7 @@ actor RouteGenerationService {
             return Route(
                 id: UUID(),
                 name: "Loop Option \(index + 1)",
-                description: "A \(durationMin)-minute loop starting and ending where you are.",
+                description: Self.generateDescription(loop: loop, start: start, durationMin: durationMin),
                 duration: durationMin,
                 distance: distanceKm,
                 difficulty: distanceKm < 4 ? .easy : (distanceKm < 7 ? .moderate : .challenging),
@@ -271,6 +271,78 @@ actor RouteGenerationService {
         let latRounded = (coordinate.latitude * 10).rounded() / 10
         let lonRounded = (coordinate.longitude * 10).rounded() / 10
         return "\(latRounded)_\(lonRounded)"
+    }
+
+    // MARK: - Route Description
+
+    /// Generates a human description from actual route data:
+    /// cardinal direction the loop heads + up to 2 real street names from navigation steps.
+    private static func generateDescription(loop: LoopResult, start: CLLocationCoordinate2D, durationMin: Int) -> String {
+        let direction = cardinalDirection(from: start, polyline: loop.polylineCoordinates)
+        let streets   = extractStreetNames(from: loop.navigationSteps)
+
+        switch streets.count {
+        case 0:
+            return "Heads \(direction) and loops back to your start."
+        case 1:
+            return "Heads \(direction) via \(streets[0])."
+        default:
+            return "Heads \(direction) via \(streets[0]) and \(streets[1])."
+        }
+    }
+
+    /// Returns the cardinal direction of the first ~20% of the route.
+    private static func cardinalDirection(from start: CLLocationCoordinate2D,
+                                          polyline: [CLLocationCoordinate2D]) -> String {
+        guard polyline.count > 2 else { return "outward" }
+        // Sample a point ~20% along the polyline to get the main outbound direction
+        let sampleIndex = max(1, polyline.count / 5)
+        let sample = polyline[sampleIndex]
+        let dLat = sample.latitude  - start.latitude
+        let dLon = sample.longitude - start.longitude
+        let angle = atan2(dLon, dLat) * 180 / .pi  // degrees from north
+        let norm  = (angle + 360).truncatingRemainder(dividingBy: 360)
+        switch norm {
+        case   0..<22.5:  return "north"
+        case  22.5..<67.5: return "northeast"
+        case  67.5..<112.5: return "east"
+        case 112.5..<157.5: return "southeast"
+        case 157.5..<202.5: return "south"
+        case 202.5..<247.5: return "southwest"
+        case 247.5..<292.5: return "west"
+        case 292.5..<337.5: return "northwest"
+        default:           return "north"
+        }
+    }
+
+    /// Extracts up to 2 unique, readable street names from navigation step instructions.
+    private static func extractStreetNames(from steps: [NavigationStep]?) -> [String] {
+        guard let steps, !steps.isEmpty else { return [] }
+
+        // Patterns that introduce a street name in Apple Maps instructions
+        let prefixes = ["onto ", "on ", "along ", "via ", "toward ", "towards "]
+
+        var seen  = Set<String>()
+        var names = [String]()
+
+        for step in steps {
+            let text = step.instruction
+            for prefix in prefixes {
+                if let range = text.range(of: prefix, options: .caseInsensitive) {
+                    let after = String(text[range.upperBound...])
+                        .components(separatedBy: CharacterSet(charactersIn: ".,/")).first?
+                        .trimmingCharacters(in: .whitespaces) ?? ""
+                    // Skip generic/empty fragments
+                    if after.count > 3, !after.lowercased().hasPrefix("the "),
+                       !after.lowercased().contains("destination"),
+                       seen.insert(after).inserted {
+                        names.append(after)
+                        if names.count == 2 { return names }
+                    }
+                }
+            }
+        }
+        return names
     }
 
     private func updateTerrainFactor(_ factor: Double, for key: String) {
