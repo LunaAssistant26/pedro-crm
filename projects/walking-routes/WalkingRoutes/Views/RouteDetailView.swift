@@ -35,15 +35,7 @@ struct RouteDetailView: View {
                 }
                 .padding(.horizontal)
 
-                // Start button — uses NavigationLink (programmatic) instead of fullScreenCover.
-                // fullScreenCover inside a NavigationStack destination is unreliable in SwiftUI
-                // and silently fails to present on some iOS versions, leaving the button faded/stuck.
-                NavigationLink(
-                    destination: RouteNavigationView(route: route, useLocation: AppFlags.useRealGPSNavigation),
-                    isActive: $showNavigation
-                ) { EmptyView() }
-                    .hidden()
-
+                // Start button
                 Button {
                     showNavigation = true
                 } label: {
@@ -79,6 +71,11 @@ struct RouteDetailView: View {
         }
         .background(AppTheme.secondaryBackground)
         .navigationBarTitleDisplayMode(.inline)
+        // Lazy navigation — RouteNavigationView is only created when showNavigation becomes true.
+        // NavigationLink(destination:isActive:) is eager (creates destination on every render) and causes freezes.
+        .navigationDestination(isPresented: $showNavigation) {
+            RouteNavigationView(route: route, useLocation: AppFlags.useRealGPSNavigation)
+        }
         .sheet(item: $selectedLandmark) { landmark in
             LandmarkDetailView(landmark: landmark)
         }
