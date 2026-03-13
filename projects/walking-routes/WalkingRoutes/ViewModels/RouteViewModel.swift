@@ -78,32 +78,33 @@ final class RouteViewModel: ObservableObject {
                 let generated = try await generationService.generateLoopRoutes(start: start, minutes: minutes)
                 if Task.isCancelled { return }
 
-                // Attach optional POIs near route geometry.
-                let enriched: [Route] = generated.map { route in
+                // Attach POIs dynamically using Apple Maps (works globally — Hanoi, Prague, anywhere)
+                var enriched: [Route] = []
+                for route in generated {
+                    if Task.isCancelled { return }
                     let coords = route.pathCoordinates
-                    let pois = PointsOfInterest.landmarks(near: coords)
+                    let pois = await DynamicPOIService.shared.landmarks(near: coords)
 
                     if pois.isEmpty {
-                        return route   // keep the generated description as-is
+                        enriched.append(route)
+                    } else {
+                        let highlightName = pois.first?.name
+                        let labeledName = highlightName.map { "\(route.name) • \($0)" } ?? route.name
+                        enriched.append(Route(
+                            id: route.id,
+                            name: labeledName,
+                            description: route.description,
+                            duration: route.duration,
+                            distance: route.distance,
+                            difficulty: route.difficulty,
+                            category: route.category,
+                            landmarks: pois,
+                            coordinates: route.coordinates,
+                            navigationSteps: route.navigationSteps,
+                            imageURL: route.imageURL,
+                            city: route.city
+                        ))
                     }
-
-                    let highlightName = pois.first?.name
-                    let labeledName = highlightName.map { "\(route.name) • Highlights: \($0)" } ?? route.name
-
-                    return Route(
-                        id: route.id,
-                        name: labeledName,
-                        description: route.description,
-                        duration: route.duration,
-                        distance: route.distance,
-                        difficulty: route.difficulty,
-                        category: route.category,
-                        landmarks: pois,
-                        coordinates: route.coordinates,
-                        navigationSteps: route.navigationSteps,
-                        imageURL: route.imageURL,
-                        city: route.city
-                    )
                 }
 
                 await MainActor.run {
