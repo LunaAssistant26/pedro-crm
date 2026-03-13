@@ -38,6 +38,8 @@
 		A0A0A0A0A0A0A0A0A0A0A00A /* NavigationStep+MapKit.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0A0A0A0A0A0A0A0A0A0B00A /* NavigationStep+MapKit.swift */; };
 		A0A0A0A0A0A0A0A0A0A0A00B /* NavigationDirectionsService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0A0A0A0A0A0A0A0A0A0B00B /* NavigationDirectionsService.swift */; };
 		A2B3C4D5E6F7A8B9C0D1E002 /* DynamicPOIService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2B3C4D5E6F7A8B9C0D1E001 /* DynamicPOIService.swift */; };
+		A3C4D5E6F7A8B9C0D1E2F003 /* GooglePlacesService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3C4D5E6F7A8B9C0D1E2F004 /* GooglePlacesService.swift */; };
+		A3C4D5E6F7A8B9C0D1E2F005 /* Config.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3C4D5E6F7A8B9C0D1E2F006 /* Config.swift */; };
 		A0A0A0A0A0A0A0A0A0A0A00C /* PolylineMath.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0A0A0A0A0A0A0A0A0A0B00C /* PolylineMath.swift */; };
 		A0A0A0A0A0A0A0A0A0A0A00D /* RouteNavigationViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0A0A0A0A0A0A0A0A0A0B00D /* RouteNavigationViewModel.swift */; };
 		A0A0A0A0A0A0A0A0A0A0A00E /* RouteCompletionStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0A0A0A0A0A0A0A0A0A0B00E /* RouteCompletionStore.swift */; };
@@ -81,6 +83,8 @@
 		A0A0A0A0A0A0A0A0A0A0B00A /* NavigationStep+MapKit.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = "NavigationStep+MapKit.swift"; path = "WalkingRoutes/Models/NavigationStep+MapKit.swift"; sourceTree = SOURCE_ROOT; };
 		A0A0A0A0A0A0A0A0A0A0B00B /* NavigationDirectionsService.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = NavigationDirectionsService.swift; path = WalkingRoutes/Services/NavigationDirectionsService.swift; sourceTree = SOURCE_ROOT; };
 		A2B3C4D5E6F7A8B9C0D1E001 /* DynamicPOIService.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = DynamicPOIService.swift; path = WalkingRoutes/Services/DynamicPOIService.swift; sourceTree = SOURCE_ROOT; };
+		A3C4D5E6F7A8B9C0D1E2F004 /* GooglePlacesService.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = GooglePlacesService.swift; path = WalkingRoutes/Services/GooglePlacesService.swift; sourceTree = SOURCE_ROOT; };
+		A3C4D5E6F7A8B9C0D1E2F006 /* Config.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = Config.swift; path = WalkingRoutes/Config.swift; sourceTree = SOURCE_ROOT; };
 		A0A0A0A0A0A0A0A0A0A0B00C /* PolylineMath.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = PolylineMath.swift; path = WalkingRoutes/Utilities/PolylineMath.swift; sourceTree = SOURCE_ROOT; };
 		A0A0A0A0A0A0A0A0A0A0B00D /* RouteNavigationViewModel.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = RouteNavigationViewModel.swift; path = WalkingRoutes/ViewModels/RouteNavigationViewModel.swift; sourceTree = SOURCE_ROOT; };
 		A0A0A0A0A0A0A0A0A0A0B00E /* RouteCompletionStore.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = RouteCompletionStore.swift; path = WalkingRoutes/Utilities/RouteCompletionStore.swift; sourceTree = SOURCE_ROOT; };
@@ -163,6 +167,8 @@
 				A0A0A0A0A0A0A0A0A0A0B004 /* RouteGenerationService.swift */,
 				A0A0A0A0A0A0A0A0A0A0B005 /* PointsOfInterest.swift */,
 				A2B3C4D5E6F7A8B9C0D1E001 /* DynamicPOIService.swift */,
+				A3C4D5E6F7A8B9C0D1E2F004 /* GooglePlacesService.swift */,
+				A3C4D5E6F7A8B9C0D1E2F006 /* Config.swift */,
 				A0A0A0A0A0A0A0A0A0A0B006 /* RoutePhoto.swift */,
 				A0A0A0A0A0A0A0A0A0A0B007 /* CollageTemplate.swift */,
 				A0A0A0A0A0A0A0A0A0A0B008 /* RouteSnapshotGenerator.swift */,
@@ -274,6 +280,8 @@
 				A0A0A0A0A0A0A0A0A0A0A00A /* NavigationStep+MapKit.swift in Sources */,
 				A0A0A0A0A0A0A0A0A0A0A00B /* NavigationDirectionsService.swift in Sources */,
 				A2B3C4D5E6F7A8B9C0D1E002 /* DynamicPOIService.swift in Sources */,
+				A3C4D5E6F7A8B9C0D1E2F003 /* GooglePlacesService.swift in Sources */,
+				A3C4D5E6F7A8B9C0D1E2F005 /* Config.swift in Sources */,
 				A0A0A0A0A0A0A0A0A0A0A00C /* PolylineMath.swift in Sources */,
 				A0A0A0A0A0A0A0A0A0A0A00D /* RouteNavigationViewModel.swift in Sources */,
 				A0A0A0A0A0A0A0A0A0A0A00E /* RouteCompletionStore.swift in Sources */,

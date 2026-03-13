@@ -21,3 +21,5 @@ xcuserdata/
 *.o
 *.a
 *.dylib
+google_places.key
+Config.swift

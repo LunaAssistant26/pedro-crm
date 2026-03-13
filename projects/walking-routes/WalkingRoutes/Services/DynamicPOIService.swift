@@ -62,9 +62,47 @@ actor DynamicPOIService {
         do {
             let search = MKLocalSearch(request: request)
             let response = try await search.start()
-            let landmarks = response.mapItems.compactMap { Landmark.from(mapItem: $0) }
-            cache[key] = CacheEntry(landmarks: landmarks, createdAt: Date())
-            return filterAndSort(landmarks, polyline: polyline, maxDist: maxDistanceMeters, limit: limit)
+            let candidates = response.mapItems.compactMap { Landmark.from(mapItem: $0) }
+            let nearby = filterAndSort(candidates, polyline: polyline, maxDist: maxDistanceMeters, limit: limit * 3)
+
+            // Enrich with Google Places (rating, hours, photos). Filter restaurants/cafés < 4.4.
+            var enriched: [Landmark] = []
+            for landmark in nearby {
+                let isFood = landmark.tags.contains(where: { ["dining", "food", "cafe"].contains($0) })
+                let minRating: Double? = isFood ? 4.4 : nil
+                let coord = CLLocationCoordinate2D(latitude: landmark.location.latitude,
+                                                  longitude: landmark.location.longitude)
+                if let gDetail = await GooglePlacesService.shared.detail(
+                    name: landmark.name,
+                    coordinate: coord,
+                    minRating: minRating
+                ) {
+                    enriched.append(landmark.enriched(with: gDetail))
+                } else if !isFood {
+                    // Non-food POIs shown even without Google data
+                    enriched.append(landmark)
+                }
+                // Food POIs without Google match (or below 4.4) are silently dropped
+                if enriched.count >= limit { break }
+            }
+
+            // Fallback: if food filter left us with very few results, relax to 4.0
+            if enriched.filter({ $0.tags.contains(where: { ["dining","food","cafe"].contains($0) }) }).isEmpty {
+                for landmark in nearby where landmark.tags.contains(where: { ["dining","food","cafe"].contains($0) }) {
+                    let coord = CLLocationCoordinate2D(latitude: landmark.location.latitude,
+                                                      longitude: landmark.location.longitude)
+                    if let gDetail = await GooglePlacesService.shared.detail(
+                        name: landmark.name, coordinate: coord, minRating: 4.0
+                    ) {
+                        var fallback = landmark.enriched(with: gDetail)
+                        enriched.append(fallback)
+                        if enriched.count >= limit { break }
+                    }
+                }
+            }
+
+            cache[key] = CacheEntry(landmarks: enriched, createdAt: Date())
+            return Array(enriched.prefix(limit))
         } catch {
             return []
         }
@@ -117,6 +155,41 @@ actor DynamicPOIService {
 }
 
 
+
+// MARK: - Landmark + Google enrichment
+
+extension Landmark {
+    func enriched(with g: GooglePlaceDetail) -> Landmark {
+        let photoURLStr = g.photoReference.flatMap {
+            GooglePlacesService.shared.photoURL(reference: $0, maxWidth: 800)?.absoluteString
+        }
+        var hours = g.todayHours
+        if let open = g.openNow {
+            let prefix = open ? "Open now" : "Closed now"
+            hours = [prefix, g.todayHours].compactMap { $0 }.joined(separator: " · ")
+        }
+        let priceStr: String? = g.priceLevel.map { String(repeating: "€", count: max(1, $0)) }
+
+        return Landmark(
+            id: self.id,
+            name: g.name.isEmpty ? self.name : g.name,
+            description: self.description,
+            location: self.location,
+            estimatedTime: self.estimatedTime,
+            imageURL: photoURLStr ?? self.imageURL,
+            rating: g.rating ?? self.rating,
+            detailedDescription: self.detailedDescription,
+            websiteURL: g.website ?? self.websiteURL,
+            bookingURL: self.bookingURL,
+            infoURL: self.infoURL,
+            openingHours: hours ?? self.openingHours,
+            admissionFee: priceStr ?? self.admissionFee,
+            phoneNumber: g.phoneNumber ?? self.phoneNumber,
+            accessibilityInfo: self.accessibilityInfo,
+            tags: self.tags
+        )
+    }
+}
 
 // MARK: - Landmark from MKMapItem
 
