@@ -99,7 +99,7 @@ struct ContentView: View {
                         .foregroundStyle(AppTheme.primaryText)
 
                     VStack(spacing: 16) {
-                        ForEach(viewModel.routes) { route in
+                        ForEach(viewModel.routes.filter { !RouteReportStore.isReported($0.id) }) { route in
                             NavigationLink(destination: RouteDetailView(route: route)) {
                                 RouteCard(route: route)
                             }

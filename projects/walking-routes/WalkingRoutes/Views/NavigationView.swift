@@ -27,6 +27,10 @@ struct RouteNavigationView: View {
     @State private var showCamera      = false
     @State private var didFinish       = false
 
+    // Route reporting
+    @State private var showReportSheet = false
+    @State private var didReport       = false
+
     private let logger = Logger(subsystem: "com.walkingroutes", category: "NavView")
 
     init(route: Route, useLocation: Bool = true) {
@@ -78,6 +82,18 @@ struct RouteNavigationView: View {
                             .background(isDemoMode ? Color.green.opacity(0.2) : Color.orange.opacity(0.2))
                             .clipShape(Capsule())
                     }
+                    // Report bad route
+                    Button {
+                        showReportSheet = true
+                    } label: {
+                        Image(systemName: didReport ? "flag.fill" : "flag")
+                            .font(.subheadline.weight(.semibold))
+                            .padding(10)
+                            .background(didReport ? Color.red.opacity(0.15) : Color(UIColor.systemBackground).opacity(0.7))
+                            .foregroundStyle(didReport ? .red : .primary)
+                            .clipShape(Circle())
+                    }
+
                     // Exit
                     Button {
                         dismiss()
@@ -264,6 +280,16 @@ struct RouteNavigationView: View {
         .sheet(isPresented: $showShareSheet)  { ShareSheetView(route: route) }
         .sheet(isPresented: $showCollage)     { CollageEditorView(route: route) }
         .sheet(isPresented: $showMuter)       { MuterVideoPreviewView(route: route) }
+        .confirmationDialog("Report this route", isPresented: $showReportSheet, titleVisibility: .visible) {
+            ForEach(RouteReportStore.ReportReason.allCases, id: \.self) { reason in
+                Button(reason.rawValue, role: reason == .other ? .cancel : .none) {
+                    if reason != .other { submitReport(reason: reason) }
+                }
+            }
+            Button("Cancel", role: .cancel) { }
+        } message: {
+            Text("Help us improve routes. This route will be flagged and a new one will be generated.")
+        }
     }
 
     // MARK: - Helpers
@@ -271,6 +297,31 @@ struct RouteNavigationView: View {
     private func endWalk() {
         RouteCompletionStore.markCompleted(route.id)
         showFinishSheet = true
+    }
+
+    private func submitReport(reason: RouteReportStore.ReportReason) {
+        // Calculate route center + radius for the avoidance zone
+        let coords = route.pathCoordinates
+        guard !coords.isEmpty else { return }
+
+        let avgLat = coords.map(\.latitude).reduce(0, +) / Double(coords.count)
+        let avgLon = coords.map(\.longitude).reduce(0, +) / Double(coords.count)
+        let center = CLLocationCoordinate2D(latitude: avgLat, longitude: avgLon)
+
+        let centerLoc = CLLocation(latitude: avgLat, longitude: avgLon)
+        let radius = coords.map {
+            centerLoc.distance(from: CLLocation(latitude: $0.latitude, longitude: $0.longitude))
+        }.max() ?? 500
+
+        RouteReportStore.report(routeID: route.id, reason: reason, routeCenter: center, routeRadius: radius)
+
+        didReport = true
+        UINotificationFeedbackGenerator().notificationOccurred(.success)
+
+        // Dismiss navigation so ContentView regenerates a fresh route
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+            dismiss()
+        }
     }
 
     private func formatDistance(_ m: CLLocationDistance) -> String {

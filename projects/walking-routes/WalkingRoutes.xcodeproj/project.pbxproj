@@ -39,6 +39,7 @@
 		A0A0A0A0A0A0A0A0A0A0A00C /* PolylineMath.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0A0A0A0A0A0A0A0A0A0B00C /* PolylineMath.swift */; };
 		A0A0A0A0A0A0A0A0A0A0A00D /* RouteNavigationViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0A0A0A0A0A0A0A0A0A0B00D /* RouteNavigationViewModel.swift */; };
 		A0A0A0A0A0A0A0A0A0A0A00E /* RouteCompletionStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0A0A0A0A0A0A0A0A0A0B00E /* RouteCompletionStore.swift */; };
+		A0B1C2D3E4F5A6B7C8D9E001 /* RouteReportStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0B1C2D3E4F5A6B7C8D9E002 /* RouteReportStore.swift */; };
 		A0A0A0A0A0A0A0A0A0A0A00F /* FinishWalkActionsSheetView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0A0A0A0A0A0A0A0A0A0B00F /* FinishWalkActionsSheetView.swift */; };
 		A0A0A0A0A0A0A0A0A0A0A010 /* RouteVideoGenerator.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0A0A0A0A0A0A0A0A0A0B010 /* RouteVideoGenerator.swift */; };
 		A0A0A0A0A0A0A0A0A0A0A011 /* LookAroundTransitionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0A0A0A0A0A0A0A0A0A0B011 /* LookAroundTransitionView.swift */; };
@@ -79,6 +80,7 @@
 		A0A0A0A0A0A0A0A0A0A0B00C /* PolylineMath.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = PolylineMath.swift; path = WalkingRoutes/Utilities/PolylineMath.swift; sourceTree = SOURCE_ROOT; };
 		A0A0A0A0A0A0A0A0A0A0B00D /* RouteNavigationViewModel.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = RouteNavigationViewModel.swift; path = WalkingRoutes/ViewModels/RouteNavigationViewModel.swift; sourceTree = SOURCE_ROOT; };
 		A0A0A0A0A0A0A0A0A0A0B00E /* RouteCompletionStore.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = RouteCompletionStore.swift; path = WalkingRoutes/Utilities/RouteCompletionStore.swift; sourceTree = SOURCE_ROOT; };
+		A0B1C2D3E4F5A6B7C8D9E002 /* RouteReportStore.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = RouteReportStore.swift; path = WalkingRoutes/Utilities/RouteReportStore.swift; sourceTree = SOURCE_ROOT; };
 		A0A0A0A0A0A0A0A0A0A0B00F /* FinishWalkActionsSheetView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = FinishWalkActionsSheetView.swift; path = WalkingRoutes/Views/FinishWalk/FinishWalkActionsSheetView.swift; sourceTree = SOURCE_ROOT; };
 		A0A0A0A0A0A0A0A0A0A0B010 /* RouteVideoGenerator.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = RouteVideoGenerator.swift; path = Services/RouteVideoGenerator.swift; sourceTree = "<group>"; };
 		3E45E550FEFA4DB2A8924DF0 /* MuterVideoGenerator.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = MuterVideoGenerator.swift; path = Services/MuterVideoGenerator.swift; sourceTree = "<group>"; };
@@ -159,6 +161,7 @@
 				A0A0A0A0A0A0A0A0A0A0B007 /* CollageTemplate.swift */,
 				A0A0A0A0A0A0A0A0A0A0B008 /* RouteSnapshotGenerator.swift */,
 				A0A0A0A0A0A0A0A0A0A0B00E /* RouteCompletionStore.swift */,
+				A0B1C2D3E4F5A6B7C8D9E002 /* RouteReportStore.swift */,
 				A0A0A0A0A0A0A0A0A0A0B00F /* FinishWalkActionsSheetView.swift */,
 				A0A0A0A0A0A0A0A0A0A0B010 /* RouteVideoGenerator.swift */,
 				3E45E550FEFA4DB2A8924DF0 /* MuterVideoGenerator.swift */,
@@ -266,6 +269,7 @@
 				A0A0A0A0A0A0A0A0A0A0A00C /* PolylineMath.swift in Sources */,
 				A0A0A0A0A0A0A0A0A0A0A00D /* RouteNavigationViewModel.swift in Sources */,
 				A0A0A0A0A0A0A0A0A0A0A00E /* RouteCompletionStore.swift in Sources */,
+				A0B1C2D3E4F5A6B7C8D9E001 /* RouteReportStore.swift in Sources */,
 				A0A0A0A0A0A0A0A0A0A0A00F /* FinishWalkActionsSheetView.swift in Sources */,
 				A0A0A0A0A0A0A0A0A0A0A010 /* RouteVideoGenerator.swift in Sources */,
 				57327C8776134A9180C53DFA /* MuterVideoGenerator.swift in Sources */,
