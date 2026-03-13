@@ -412,6 +412,7 @@ struct RouteMapViewRepresentable: UIViewRepresentable {
         if routeChanged {
             mapView.removeOverlays(mapView.overlays)
             mapView.removeAnnotations(mapView.annotations.filter { !($0 is MKUserLocation) })
+            context.coordinator.resetFoodSpotIDs()
 
             let points = route.pathCoordinates
             guard !points.isEmpty else {
@@ -434,15 +435,6 @@ struct RouteMapViewRepresentable: UIViewRepresentable {
                 }
             }
 
-            // User-added food spots → teal pins
-            for spot in addedFoodSpots {
-                let a = FoodSpotAnnotation()
-                a.title = spot.name
-                a.subtitle = spot.openingHours ?? spot.description
-                a.coordinate = spot.location.clLocation
-                mapView.addAnnotation(a)
-            }
-
             let lmRects = route.landmarks.map {
                 MKMapRect(origin: MKMapPoint($0.location.clLocation), size: MKMapSize(width: 0, height: 0))
             }
@@ -450,6 +442,9 @@ struct RouteMapViewRepresentable: UIViewRepresentable {
 
             context.coordinator.drawWalkingRoute(points: points, on: mapView)
         }
+
+        // Food spot pins — always diffed independently of route changes
+        context.coordinator.updateFoodSpotPins(addedFoodSpots, on: mapView)
 
         // User location puck (custom blue dot + heading arrow — avoids MKCoreLocationProvider conflict)
         context.coordinator.updateUserPuck(coordinate: userCoordinate, heading: userHeading, on: mapView)
@@ -479,6 +474,9 @@ struct RouteMapViewRepresentable: UIViewRepresentable {
         private var allPolylines: [MKPolyline] = []
         private let logger = Logger(subsystem: "com.walkingroutes", category: "MapCoordinator")
 
+        // Track added food spot IDs so we can diff and update teal pins independently of route changes
+        private var drawnFoodSpotIDs: Set<UUID> = []
+
         init(routeColor: RouteColor, fitToRoute: Bool) {
             self.routeColor = routeColor
             self.fitToRoute = fitToRoute
@@ -486,6 +484,31 @@ struct RouteMapViewRepresentable: UIViewRepresentable {
 
         func hasRouteChanged(to id: UUID) -> Bool { drawnRouteId != id }
         func markRouteDrawn(_ id: UUID)           { drawnRouteId = id }
+        func resetFoodSpotIDs()                   { drawnFoodSpotIDs = [] }
+
+        /// Diff the current food spot list and add/remove teal pins as needed.
+        func updateFoodSpotPins(_ spots: [Landmark], on mapView: MKMapView) {
+            let newIDs = Set(spots.map(\.id))
+            guard newIDs != drawnFoodSpotIDs else { return }
+
+            // Remove pins no longer in the list
+            let toRemove = mapView.annotations.compactMap { $0 as? FoodSpotAnnotation }.filter { ann in
+                !spots.contains { $0.name == ann.title }
+            }
+            mapView.removeAnnotations(toRemove)
+
+            // Add newly added spots
+            let addedIDs = newIDs.subtracting(drawnFoodSpotIDs)
+            for spot in spots where addedIDs.contains(spot.id) {
+                let a = FoodSpotAnnotation()
+                a.title = spot.name
+                a.subtitle = spot.openingHours ?? spot.description
+                a.coordinate = spot.location.clLocation
+                mapView.addAnnotation(a)
+            }
+
+            drawnFoodSpotIDs = newIDs
+        }
 
         // MARK: User puck
         private var userPuck: UserPuckAnnotation?
