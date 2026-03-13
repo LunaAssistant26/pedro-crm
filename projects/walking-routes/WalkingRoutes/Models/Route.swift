@@ -146,6 +146,11 @@ struct Landmark: Identifiable, Codable {
 
     var isBookable: Bool { bookingURL != nil }
 
+    /// True for restaurants, cafés, and bakeries — shown in "You'll walk past" section, hidden from map by default.
+    var isFoodSpot: Bool {
+        tags.contains(where: { ["dining", "food", "cafe", "restaurant", "bakery"].contains($0) })
+    }
+
     /// Convenience for grouping in UI.
     var primaryTag: String {
         tags.first ?? "other"

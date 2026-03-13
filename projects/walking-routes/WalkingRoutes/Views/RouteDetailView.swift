@@ -12,6 +12,13 @@ struct RouteDetailView: View {
     @State private var showPhotosSheet = false
     @State private var showCollageSheet = false
 
+    // Food spots the user has opted to add to their walk
+    @State private var addedFoodSpotIDs: Set<UUID> = []
+
+    private var culturalLandmarks: [Landmark] { route.landmarks.filter { !$0.isFoodSpot } }
+    private var foodLandmarks: [Landmark]     { route.landmarks.filter {  $0.isFoodSpot } }
+    private var addedFoodSpots: [Landmark]    { foodLandmarks.filter { addedFoodSpotIDs.contains($0.id) } }
+
     private let logger = Logger(subsystem: "com.walkingroutes", category: "RouteDetailView")
 
     var body: some View {
@@ -52,14 +59,25 @@ struct RouteDetailView: View {
                 }
                 .padding(.horizontal)
 
-                // Map
-                RouteMapViewRepresentable(route: route, routeColor: route.routeColor, showsNumberedPins: true, fitToRoute: true)
-                    .frame(height: 260)
-                    .clipShape(RoundedRectangle(cornerRadius: 20))
-                    .padding(.horizontal)
+                // Map — cultural pins always visible, teal food pins appear when added
+                RouteMapViewRepresentable(
+                    route: route,
+                    routeColor: route.routeColor,
+                    showsNumberedPins: true,
+                    fitToRoute: true,
+                    addedFoodSpots: addedFoodSpots
+                )
+                .frame(height: 260)
+                .clipShape(RoundedRectangle(cornerRadius: 20))
+                .padding(.horizontal)
 
-                // Landmarks section
+                // Cultural landmarks section
                 landmarksSection
+
+                // Food & café stops section
+                if !foodLandmarks.isEmpty {
+                    walkPastSection
+                }
 
                 // Photo credit
                 Text("Photos: Wikimedia Commons")
@@ -178,8 +196,8 @@ struct RouteDetailView: View {
                     Text("Highlights")
                         .font(.title3.weight(.bold))
 
-                    if !route.landmarks.isEmpty {
-                        Text("\(route.landmarks.count) stops along your route")
+                    if !culturalLandmarks.isEmpty {
+                        Text("\(culturalLandmarks.count) stops along your route")
                             .font(.subheadline)
                             .foregroundStyle(.secondary)
                     }
@@ -187,7 +205,7 @@ struct RouteDetailView: View {
 
                 Spacer()
 
-                if route.landmarks.count > 2 {
+                if culturalLandmarks.count > 2 {
                     Button("See All") {
                         showAllLandmarks = true
                     }
@@ -197,7 +215,7 @@ struct RouteDetailView: View {
             }
             .padding(.horizontal)
 
-            if route.landmarks.isEmpty {
+            if culturalLandmarks.isEmpty {
                 // Empty state
                 VStack(spacing: 12) {
                     Image(systemName: "mappin.slash")
@@ -217,21 +235,22 @@ struct RouteDetailView: View {
                 .clipShape(RoundedRectangle(cornerRadius: 16))
                 .padding(.horizontal)
             } else {
-                // Show first 2 landmarks with full cards
+                // Show first 2 cultural landmarks with full cards
                 VStack(spacing: 12) {
-                    ForEach(Array(route.landmarks.prefix(2).enumerated()), id: \.element.id) { index, landmark in
+                    ForEach(Array(culturalLandmarks.prefix(2).enumerated()), id: \.element.id) { index, landmark in
                         LandmarkCard(
                             landmark: landmark,
                             index: index + 1,
                             routeColor: route.routeColor.color,
                             estimatedWalkTime: estimatedWalkTime(to: landmark)
                         )
+                        .onTapGesture { selectedLandmark = landmark }
                         .padding(.horizontal)
                     }
                 }
 
                 // Show "more landmarks" preview if there are more
-                if route.landmarks.count > 2 {
+                if culturalLandmarks.count > 2 {
                     Button {
                         showAllLandmarks = true
                     } label: {
@@ -258,7 +277,7 @@ struct RouteDetailView: View {
                                 }
                             }
 
-                            Text("+\(route.landmarks.count - 2) more landmarks")
+                            Text("+\(culturalLandmarks.count - 2) more landmarks")
                                 .font(.subheadline.weight(.medium))
                                 .foregroundStyle(.primary)
 
@@ -277,7 +296,7 @@ struct RouteDetailView: View {
                 }
 
                 // Bookable landmarks indicator
-                let bookableCount = route.landmarks.filter(\.isBookable).count
+                let bookableCount = culturalLandmarks.filter(\.isBookable).count
                 if bookableCount > 0 {
                     HStack {
                         Image(systemName: "ticket.fill")
@@ -293,6 +312,48 @@ struct RouteDetailView: View {
     }
 
     // MARK: - Helpers
+
+    // MARK: - Walk Past (food & café spots)
+
+    private var walkPastSection: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(spacing: 6) {
+                Image(systemName: "fork.knife")
+                    .foregroundStyle(Color.teal)
+                Text("You'll walk past")
+                    .font(.title3.weight(.bold))
+                Spacer()
+                Text("\(foodLandmarks.count) spots")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            }
+            .padding(.horizontal)
+
+            Text("Restaurants & cafés along this route. Add the ones you like — they'll appear as teal pins on the map.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .padding(.horizontal)
+
+            VStack(spacing: 12) {
+                ForEach(foodLandmarks) { spot in
+                    FoodSpotCard(
+                        spot: spot,
+                        isAdded: addedFoodSpotIDs.contains(spot.id)
+                    ) {
+                        if addedFoodSpotIDs.contains(spot.id) {
+                            addedFoodSpotIDs.remove(spot.id)
+                        } else {
+                            addedFoodSpotIDs.insert(spot.id)
+                            UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                        }
+                    } onTap: {
+                        selectedLandmark = spot
+                    }
+                    .padding(.horizontal)
+                }
+            }
+        }
+    }
 
     private func estimatedWalkTime(to landmark: Landmark) -> Int? {
         // Simple estimation based on distance from start
@@ -434,6 +495,85 @@ private struct HeroSection: View {
             .frame(height: 280)
             .frame(maxWidth: .infinity)
             .clipShape(RoundedRectangle(cornerRadius: 20))
+    }
+}
+
+// MARK: - FoodSpotCard
+
+private struct FoodSpotCard: View {
+    let spot: Landmark
+    let isAdded: Bool
+    let onToggle: () -> Void
+    let onTap: () -> Void
+
+    var body: some View {
+        HStack(spacing: 12) {
+            // Photo or placeholder
+            AsyncImage(url: URL(string: spot.imageURL ?? "")) { phase in
+                switch phase {
+                case .success(let image):
+                    image.resizable().scaledToFill()
+                default:
+                    Color(.systemGray5)
+                        .overlay(Image(systemName: "fork.knife").foregroundStyle(.secondary))
+                }
+            }
+            .frame(width: 64, height: 64)
+            .clipShape(RoundedRectangle(cornerRadius: 10))
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text(spot.name)
+                    .font(.subheadline.weight(.semibold))
+                    .lineLimit(1)
+
+                if let rating = spot.rating {
+                    HStack(spacing: 3) {
+                        Image(systemName: "star.fill")
+                            .font(.caption2)
+                            .foregroundStyle(.orange)
+                        Text(String(format: "%.1f", rating))
+                            .font(.caption.weight(.medium))
+                        if let count = spot.admissionFee {
+                            Text("· \(count)")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                }
+
+                if let hours = spot.openingHours {
+                    Text(hours)
+                        .font(.caption)
+                        .foregroundStyle(hours.lowercased().hasPrefix("open") ? .green : .secondary)
+                        .lineLimit(1)
+                }
+            }
+            .onTapGesture { onTap() }
+
+            Spacer()
+
+            Button(action: onToggle) {
+                if isAdded {
+                    Label("Added", systemImage: "checkmark.circle.fill")
+                        .font(.caption.weight(.bold))
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 10).padding(.vertical, 6)
+                        .background(Color.teal)
+                        .clipShape(Capsule())
+                } else {
+                    Label("Add", systemImage: "plus.circle")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(Color.teal)
+                        .padding(.horizontal, 10).padding(.vertical, 6)
+                        .background(Color.teal.opacity(0.1))
+                        .clipShape(Capsule())
+                }
+            }
+        }
+        .padding(12)
+        .background(Color(.systemBackground))
+        .clipShape(RoundedRectangle(cornerRadius: 14))
+        .shadow(color: .black.opacity(0.04), radius: 4, x: 0, y: 2)
     }
 }
 

@@ -385,6 +385,7 @@ struct RouteMapViewRepresentable: UIViewRepresentable {
     var userHeading: CLLocationDirection?   // degrees, nil = no arrow
     var showsNumberedPins: Bool = false
     var fitToRoute: Bool = false
+    var addedFoodSpots: [Landmark] = []    // user-added café/restaurant pins (teal)
 
     private let logger = Logger(subsystem: "com.walkingroutes", category: "RouteMapView")
 
@@ -421,7 +422,9 @@ struct RouteMapViewRepresentable: UIViewRepresentable {
             context.coordinator.markRouteDrawn(route.id)
 
             if showsNumberedPins {
-                for (i, lm) in route.landmarks.enumerated() {
+                // Cultural/historical landmarks → numbered orange pins
+                let cultural = route.landmarks.filter { !$0.isFoodSpot }
+                for (i, lm) in cultural.enumerated() {
                     let a = NumberedPointAnnotation()
                     a.number = i + 1
                     a.title = lm.name
@@ -429,6 +432,15 @@ struct RouteMapViewRepresentable: UIViewRepresentable {
                     a.coordinate = lm.location.clLocation
                     mapView.addAnnotation(a)
                 }
+            }
+
+            // User-added food spots → teal pins
+            for spot in addedFoodSpots {
+                let a = FoodSpotAnnotation()
+                a.title = spot.name
+                a.subtitle = spot.openingHours ?? spot.description
+                a.coordinate = spot.location.clLocation
+                mapView.addAnnotation(a)
             }
 
             let lmRects = route.landmarks.map {
@@ -537,6 +549,13 @@ struct RouteMapViewRepresentable: UIViewRepresentable {
                     ?? UserPuckAnnotationView(annotation: annotation, reuseIdentifier: id)
                 view.annotation = puck
                 view.updateHeading(puck.heading)
+                return view
+            }
+            if let food = annotation as? FoodSpotAnnotation {
+                let id = "FoodSpot"
+                let view = mapView.dequeueReusableAnnotationView(withIdentifier: id)
+                    ?? FoodSpotAnnotationView(annotation: annotation, reuseIdentifier: id)
+                view.annotation = food
                 return view
             }
             guard let numbered = annotation as? NumberedPointAnnotation else { return nil }
@@ -713,6 +732,48 @@ final class LocationManager: NSObject, ObservableObject, CLLocationManagerDelega
 
 final class NumberedPointAnnotation: MKPointAnnotation {
     var number: Int = 0
+}
+
+/// Teal pin for user-added food/café spots.
+final class FoodSpotAnnotation: MKPointAnnotation {}
+
+final class FoodSpotAnnotationView: MKAnnotationView {
+    private static let reuseID = "FoodSpot"
+
+    override init(annotation: MKAnnotation?, reuseIdentifier: String?) {
+        super.init(annotation: annotation, reuseIdentifier: reuseIdentifier)
+        backgroundColor = .clear
+        frame = CGRect(x: 0, y: 0, width: 30, height: 36)
+        canShowCallout = true
+    }
+    required init?(coder: NSCoder) { fatalError() }
+
+    override func draw(_ rect: CGRect) {
+        let ctx = UIGraphicsGetCurrentContext()!
+        // Teal teardrop pin
+        let pinRect = CGRect(x: 1, y: 1, width: rect.width - 2, height: rect.width - 2)
+        ctx.setFillColor(UIColor.systemTeal.cgColor)
+        ctx.fillEllipse(in: pinRect)
+        // Triangle point at bottom
+        let cx = rect.midX
+        let top = rect.width - 1
+        let tip = rect.height - 1
+        ctx.move(to: CGPoint(x: cx - 4, y: top))
+        ctx.addLine(to: CGPoint(x: cx + 4, y: top))
+        ctx.addLine(to: CGPoint(x: cx, y: tip))
+        ctx.closePath()
+        ctx.fillPath()
+        // Fork & knife icon
+        let attrs: [NSAttributedString.Key: Any] = [
+            .font: UIFont.systemFont(ofSize: 12),
+            .foregroundColor: UIColor.white
+        ]
+        let s = "🍽" as NSString
+        let sz = s.size(withAttributes: attrs)
+        s.draw(at: CGPoint(x: (pinRect.width - sz.width) / 2 + 1,
+                           y: (pinRect.height - sz.height) / 2 + 1),
+               withAttributes: attrs)
+    }
 }
 
 final class NumberedAnnotationView: MKAnnotationView {
