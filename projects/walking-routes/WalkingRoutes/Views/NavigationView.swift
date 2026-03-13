@@ -412,7 +412,7 @@ struct RouteMapViewRepresentable: UIViewRepresentable {
         if routeChanged {
             mapView.removeOverlays(mapView.overlays)
             mapView.removeAnnotations(mapView.annotations.filter { !($0 is MKUserLocation) })
-            context.coordinator.resetFoodSpotIDs()
+            context.coordinator.resetFoodSpotIDs(on: mapView)
 
             let points = route.pathCoordinates
             guard !points.isEmpty else {
@@ -484,23 +484,33 @@ struct RouteMapViewRepresentable: UIViewRepresentable {
 
         func hasRouteChanged(to id: UUID) -> Bool { drawnRouteId != id }
         func markRouteDrawn(_ id: UUID)           { drawnRouteId = id }
-        func resetFoodSpotIDs()                   { drawnFoodSpotIDs = [] }
+        func resetFoodSpotIDs(on mapView: MKMapView? = nil) {
+            if let mapView {
+                let stale = mapView.annotations.compactMap { $0 as? FoodSpotAnnotation }
+                mapView.removeAnnotations(stale)
+            }
+            drawnFoodSpotIDs = []
+        }
 
         /// Diff the current food spot list and add/remove teal pins as needed.
         func updateFoodSpotPins(_ spots: [Landmark], on mapView: MKMapView) {
             let newIDs = Set(spots.map(\.id))
             guard newIDs != drawnFoodSpotIDs else { return }
 
-            // Remove pins no longer in the list
-            let toRemove = mapView.annotations.compactMap { $0 as? FoodSpotAnnotation }.filter { ann in
-                !spots.contains { $0.name == ann.title }
+            // Remove by landmark UUID — safe even when two spots share a name
+            let removedIDs = drawnFoodSpotIDs.subtracting(newIDs)
+            if !removedIDs.isEmpty {
+                let toRemove = mapView.annotations
+                    .compactMap { $0 as? FoodSpotAnnotation }
+                    .filter { removedIDs.contains($0.landmarkID) }
+                mapView.removeAnnotations(toRemove)
             }
-            mapView.removeAnnotations(toRemove)
 
             // Add newly added spots
             let addedIDs = newIDs.subtracting(drawnFoodSpotIDs)
             for spot in spots where addedIDs.contains(spot.id) {
                 let a = FoodSpotAnnotation()
+                a.landmarkID = spot.id
                 a.title = spot.name
                 a.subtitle = spot.openingHours ?? spot.description
                 a.coordinate = spot.location.clLocation
@@ -758,7 +768,9 @@ final class NumberedPointAnnotation: MKPointAnnotation {
 }
 
 /// Teal pin for user-added food/café spots.
-final class FoodSpotAnnotation: MKPointAnnotation {}
+final class FoodSpotAnnotation: MKPointAnnotation {
+    var landmarkID: UUID = UUID()   // used for safe diffing (name-based matching is fragile)
+}
 
 final class FoodSpotAnnotationView: MKAnnotationView {
     private static let reuseID = "FoodSpot"

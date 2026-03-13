@@ -90,9 +90,14 @@ struct LandmarkDetailView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.colorScheme) private var colorScheme
 
+    /// If non-nil, this is a food spot — shows "Visit This Spot" / "Added to Walk ✓"
+    var isAddedToWalk: Bool? = nil
+    var onAddToWalk: (() -> Void)? = nil
+
     @State private var showSafari = false
     @State private var safariURL: URL?
-    @State private var addedToWalk = false
+    // Local mirror — reflects parent state on open, stays in sync via onAddToWalk closure
+    @State private var addedToWalkLocal: Bool = false
 
     private let logger = Logger(subsystem: "com.walkingroutes", category: "LandmarkDetailView")
 
@@ -142,6 +147,7 @@ struct LandmarkDetailView: View {
             }
             .onAppear {
                 AnalyticsService.shared.log(.landmarkViewed(name: landmark.name))
+                addedToWalkLocal = isAddedToWalk ?? false
             }
         }
     }
@@ -355,16 +361,18 @@ struct LandmarkDetailView: View {
                 }
             }
 
-            // Visit This Spot
-            ActionButton(
-                title: addedToWalk ? "Added to Walk ✓" : "Visit This Spot",
-                icon: addedToWalk ? "checkmark.circle.fill" : "mappin.circle.fill",
-                style: .tertiary
-            ) {
-                guard !addedToWalk else { return }
-                addedToWalk = true
-                UIImpactFeedbackGenerator(style: .medium).impactOccurred()
-                AnalyticsService.shared.log(.directionsRequested(landmark: landmark.name))
+            // Visit This Spot (only shown for food spots)
+            if isAddedToWalk != nil {
+                ActionButton(
+                    title: addedToWalkLocal ? "Added to Walk ✓" : "Visit This Spot",
+                    icon: addedToWalkLocal ? "checkmark.circle.fill" : "mappin.circle.fill",
+                    style: .tertiary
+                ) {
+                    addedToWalkLocal.toggle()
+                    onAddToWalk?()
+                    UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                    AnalyticsService.shared.log(.directionsRequested(landmark: landmark.name))
+                }
             }
         }
     }

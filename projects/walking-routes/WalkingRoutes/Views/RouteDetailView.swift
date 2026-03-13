@@ -95,7 +95,17 @@ struct RouteDetailView: View {
             RouteNavigationView(route: route, useLocation: AppFlags.useRealGPSNavigation)
         }
         .sheet(item: $selectedLandmark) { landmark in
-            LandmarkDetailView(landmark: landmark)
+            LandmarkDetailView(
+                landmark: landmark,
+                isAddedToWalk: landmark.isFoodSpot ? addedFoodSpotIDs.contains(landmark.id) : nil,
+                onAddToWalk: landmark.isFoodSpot ? {
+                    if addedFoodSpotIDs.contains(landmark.id) {
+                        addedFoodSpotIDs.remove(landmark.id)
+                    } else {
+                        addedFoodSpotIDs.insert(landmark.id)
+                    }
+                } : nil
+            )
         }
         .sheet(isPresented: $showAllLandmarks) {
             NavigationStack {
