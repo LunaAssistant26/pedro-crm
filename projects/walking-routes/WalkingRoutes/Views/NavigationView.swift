@@ -85,6 +85,18 @@ struct RouteNavigationView: View {
                                 .clipShape(Capsule())
                         }
                     }
+                    // Manual reroute button
+                    Button {
+                        guard let coord = locationManager.currentCoordinate else { return }
+                        navModel.manualReroute(from: coord)
+                    } label: {
+                        Image(systemName: "arrow.triangle.2.circlepath")
+                            .font(.subheadline.weight(.semibold))
+                            .padding(10)
+                            .background(Color(UIColor.systemBackground).opacity(0.7))
+                            .clipShape(Circle())
+                    }
+
                     // Report bad route
                     Button {
                         showReportSheet = true
@@ -110,6 +122,36 @@ struct RouteNavigationView: View {
                 }
                 .padding(.horizontal)
                 .padding(.top, 8)
+
+                // No-progress prompt
+                if navModel.showReroutePrompt && !navModel.isRerouting {
+                    HStack(spacing: 10) {
+                        Image(systemName: "questionmark.circle.fill")
+                            .foregroundStyle(.white)
+                        Text("Looks like you went a different way")
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(.white)
+                        Spacer()
+                        Button {
+                            guard let coord = locationManager.currentCoordinate else { return }
+                            navModel.manualReroute(from: coord)
+                        } label: {
+                            Text("Reroute")
+                                .font(.subheadline.weight(.bold))
+                                .padding(.horizontal, 10).padding(.vertical, 5)
+                                .background(Color.white.opacity(0.25))
+                                .clipShape(Capsule())
+                                .foregroundStyle(.white)
+                        }
+                    }
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 10)
+                    .background(Color.orange)
+                    .clipShape(RoundedRectangle(cornerRadius: 14))
+                    .padding(.horizontal, 12)
+                    .padding(.top, 8)
+                    .transition(.move(edge: .top).combined(with: .opacity))
+                }
 
                 // Off-route / Recalculating banner
                 if navModel.isRerouting {

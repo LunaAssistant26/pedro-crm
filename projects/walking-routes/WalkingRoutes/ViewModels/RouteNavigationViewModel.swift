@@ -16,9 +16,14 @@ final class RouteNavigationViewModel: ObservableObject {
     @Published var isRerouting: Bool = false
 
     private let route: Route
-    private let offRouteThresholdMeters: CLLocationDistance = 40   // was 60 — trigger sooner
-    private let offRouteHoldSeconds: TimeInterval = 4              // was 6 — shorter hold
-    private let stepAdvanceThresholdMeters: CLLocationDistance = 25 // was 35 — advance sooner
+    private let offRouteThresholdMeters: CLLocationDistance = 30   // dense city streets — tight threshold
+    private let offRouteHoldSeconds: TimeInterval = 3
+    private let stepAdvanceThresholdMeters: CLLocationDistance = 25
+
+    // No-progress detection: prompt reroute if no step advances for this long
+    private let noProgressTimeoutSeconds: TimeInterval = 90
+    @Published var showReroutePrompt: Bool = false
+    private var lastStepAdvanceTime: Date = Date()
     private let rerouteCooldownSeconds: TimeInterval = 60
 
     private var offRouteSince: Date?
@@ -103,10 +108,26 @@ final class RouteNavigationViewModel: ObservableObject {
 
     func handleLocationUpdate(_ user: CLLocationCoordinate2D) {
         guard !isDemoMode else { return }
-        checkWalkingDirection(user: user)   // detect reverse walking early, before anything else
+        checkWalkingDirection(user: user)
         updateDistanceToNext(user: user)
         advanceStepIfNeeded(user: user)
         updateOffRoute(user: user)
+        checkNoProgress()
+    }
+
+    private func checkNoProgress() {
+        guard !isAtLastStep, !isRerouting else { return }
+        let stuck = Date().timeIntervalSince(lastStepAdvanceTime) >= noProgressTimeoutSeconds
+        if stuck && !showReroutePrompt {
+            showReroutePrompt = true
+        }
+    }
+
+    /// Call this any time the user manually requests a reroute.
+    func manualReroute(from user: CLLocationCoordinate2D) {
+        showReroutePrompt = false
+        lastStepAdvanceTime = Date()
+        reroute(from: user)
     }
 
     /// After ~80m of walking, check if user is heading toward the END of the route instead of the start.
@@ -236,6 +257,8 @@ final class RouteNavigationViewModel: ObservableObject {
         guard currentStepIndex < steps.count - 1 else { return }
 
         currentStepIndex += 1
+        lastStepAdvanceTime = Date()
+        showReroutePrompt = false
         UIImpactFeedbackGenerator(style: .light).impactOccurred()
     }
 
