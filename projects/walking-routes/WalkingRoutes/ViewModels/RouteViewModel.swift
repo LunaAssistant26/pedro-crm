@@ -84,20 +84,7 @@ final class RouteViewModel: ObservableObject {
                     let pois = PointsOfInterest.landmarks(near: coords)
 
                     if pois.isEmpty {
-                        return Route(
-                            id: route.id,
-                            name: route.name,
-                            description: "Nice walk — a loop that starts and ends at the same spot.",
-                            duration: route.duration,
-                            distance: route.distance,
-                            difficulty: route.difficulty,
-                            category: route.category,
-                            landmarks: [],
-                            coordinates: route.coordinates,
-                            navigationSteps: route.navigationSteps,
-                            imageURL: route.imageURL,
-                            city: route.city
-                        )
+                        return route   // keep the generated description as-is
                     }
 
                     let highlightName = pois.first?.name
