@@ -70,17 +70,20 @@ struct RouteNavigationView: View {
                             .clipShape(Circle())
                     }
                     Spacer()
-                    // Demo / GPS toggle
-                    Button {
-                        isDemoMode.toggle()
-                        if isDemoMode { navModel.enableDemoMode() }
-                        else           { navModel.disableDemoMode(); locationManager.startUpdating() }
-                    } label: {
-                        Text(isDemoMode ? "GPS" : "Demo")
-                            .font(.subheadline.weight(.semibold))
-                            .padding(.horizontal, 12).padding(.vertical, 8)
-                            .background(isDemoMode ? Color.green.opacity(0.2) : Color.orange.opacity(0.2))
-                            .clipShape(Capsule())
+                    // GPS indicator (tap to force real GPS if stuck in demo)
+                    if isDemoMode {
+                        Button {
+                            isDemoMode = false
+                            navModel.disableDemoMode()
+                            locationManager.startUpdating()
+                        } label: {
+                            Label("Using GPS", systemImage: "location.fill")
+                                .font(.caption.weight(.semibold))
+                                .foregroundStyle(.green)
+                                .padding(.horizontal, 10).padding(.vertical, 6)
+                                .background(Color.green.opacity(0.15))
+                                .clipShape(Capsule())
+                        }
                     }
                     // Report bad route
                     Button {
@@ -397,10 +400,14 @@ struct RouteMapViewRepresentable: UIViewRepresentable {
         // User location puck (custom blue dot + heading arrow — avoids MKCoreLocationProvider conflict)
         context.coordinator.updateUserPuck(coordinate: userCoordinate, heading: userHeading, on: mapView)
 
-        // Camera: follow GPS when available, else center on route start
+        // Camera: follow GPS when walking (heading-aware, Apple Maps style)
         if followUser, let coord = userCoordinate {
-            let span = MKCoordinateSpan(latitudeDelta: 0.005, longitudeDelta: 0.005)
-            mapView.setRegion(MKCoordinateRegion(center: coord, span: span), animated: true)
+            let heading = userHeading ?? mapView.camera.heading
+            let camera  = MKMapCamera(lookingAtCenter: coord,
+                                      fromDistance: 600,
+                                      pitch: 0,
+                                      heading: heading)
+            mapView.setCamera(camera, animated: true)
         } else if !fitToRoute, let first = route.pathCoordinates.first {
             let span = MKCoordinateSpan(latitudeDelta: 0.01, longitudeDelta: 0.01)
             mapView.setRegion(MKCoordinateRegion(center: first, span: span), animated: false)

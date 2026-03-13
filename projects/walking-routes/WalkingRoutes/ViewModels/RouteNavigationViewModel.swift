@@ -16,9 +16,9 @@ final class RouteNavigationViewModel: ObservableObject {
     @Published var isRerouting: Bool = false
 
     private let route: Route
-    private let offRouteThresholdMeters: CLLocationDistance = 60
-    private let offRouteHoldSeconds: TimeInterval = 6
-    private let stepAdvanceThresholdMeters: CLLocationDistance = 35
+    private let offRouteThresholdMeters: CLLocationDistance = 40   // was 60 — trigger sooner
+    private let offRouteHoldSeconds: TimeInterval = 4              // was 6 — shorter hold
+    private let stepAdvanceThresholdMeters: CLLocationDistance = 25 // was 35 — advance sooner
     private let rerouteCooldownSeconds: TimeInterval = 60
 
     private var offRouteSince: Date?
@@ -26,7 +26,7 @@ final class RouteNavigationViewModel: ObservableObject {
 
     private var demoAdvanceTask: Task<Void, Never>?
 
-    // Direction detection — checked once after user walks ~80m from start
+    // Direction detection — checked once after user walks ~50m from start
     private var directionChecked = false
     private var lastKnownCoord: CLLocationCoordinate2D?
     private var distanceTraveled: CLLocationDistance = 0
@@ -121,7 +121,7 @@ final class RouteNavigationViewModel: ObservableObject {
         }
         lastKnownCoord = user
 
-        guard distanceTraveled >= 80 else { return }   // wait until ~80m walked
+        guard distanceTraveled >= 50 else { return }   // wait until ~50m walked
         directionChecked = true
 
         // Compare distance to step 1 (forward direction) vs last step (reverse direction)
