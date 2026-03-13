@@ -57,6 +57,23 @@ actor NavigationDirectionsService {
     }
 
     /// Simple re-route: from current coordinate to a target coordinate.
+    // MARK: - Detour route (Apple Maps style)
+
+    struct DetourResult {
+        let steps: [NavigationStep]
+        let polylineCoordinates: [CLLocationCoordinate2D]
+    }
+
+    /// Request a walking route from `current` → `target` for a detour.
+    /// Returns both turn-by-turn steps and the full road polyline for map overlay rendering.
+    func detourRoute(from current: CLLocationCoordinate2D, to target: CLLocationCoordinate2D) async throws -> DetourResult {
+        let leg = try await directions(from: current, to: target)
+        let steps = leg.steps.compactMap { NavigationStep.from(mapKitStep: $0) }
+        let polyCoords = leg.polyline.coordinates
+        return DetourResult(steps: steps, polylineCoordinates: polyCoords)
+    }
+
+    // Legacy alias kept for any call sites not yet migrated
     func reroute(from current: CLLocationCoordinate2D, to target: CLLocationCoordinate2D) async throws -> [NavigationStep] {
         let leg = try await directions(from: current, to: target)
         return leg.steps.compactMap { NavigationStep.from(mapKitStep: $0) }

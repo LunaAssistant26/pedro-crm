@@ -454,10 +454,4 @@ private extension CLLocation {
     }
 }
 
-private extension MKPolyline {
-    var coordinates: [CLLocationCoordinate2D] {
-        var coords = Array(repeating: kCLLocationCoordinate2DInvalid, count: pointCount)
-        getCoordinates(&coords, range: NSRange(location: 0, length: pointCount))
-        return coords.filter { CLLocationCoordinate2DIsValid($0) }
-    }
-}
+// MKPolyline.coordinates is defined in Utilities/PolylineMath.swift

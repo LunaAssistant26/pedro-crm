@@ -1,5 +1,6 @@
 import Foundation
 import CoreLocation
+import MapKit
 
 enum PolylineMath {
     /// Returns the distance (meters) from `point` to the polyline described by `coordinates`.
@@ -89,5 +90,15 @@ enum PolylineMath {
 
         let d = hypot(px - cx, py - cy)
         return ((cx, cy), d)
+    }
+}
+
+// MARK: - MKPolyline convenience (internal, used by NavigationDirectionsService + RouteGenerationService)
+
+extension MKPolyline {
+    var coordinates: [CLLocationCoordinate2D] {
+        var coords = [CLLocationCoordinate2D](repeating: kCLLocationCoordinate2DInvalid, count: pointCount)
+        getCoordinates(&coords, range: NSRange(location: 0, length: pointCount))
+        return coords
     }
 }

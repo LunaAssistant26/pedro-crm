@@ -52,7 +52,8 @@ struct RouteNavigationView: View {
                     userCoordinate: isDemoMode ? nil : locationManager.currentCoordinate,
                     userHeading: isDemoMode ? nil : locationManager.currentHeading,
                     showsNumberedPins: true,
-                    fitToRoute: false
+                    fitToRoute: false,
+                    detourPolyline: navModel.detourPolyline
                 )
                 .ignoresSafeArea()
             } else {
@@ -123,14 +124,56 @@ struct RouteNavigationView: View {
                 .padding(.horizontal)
                 .padding(.top, 8)
 
-                // No-progress prompt
-                if navModel.showReroutePrompt && !navModel.isRerouting {
-                    HStack(spacing: 10) {
-                        Image(systemName: "questionmark.circle.fill")
-                            .foregroundStyle(.white)
-                        Text("Looks like you went a different way")
+                // Phase-driven banners
+                switch navModel.phase {
+
+                case .rerouting:
+                    // Calculating detour
+                    HStack(spacing: 8) {
+                        ProgressView().tint(.white).controlSize(.small)
+                        Text("Calculating route back…")
                             .font(.subheadline.weight(.semibold))
                             .foregroundStyle(.white)
+                    }
+                    .padding(.horizontal, 16).padding(.vertical, 10)
+                    .background(Color.orange)
+                    .clipShape(Capsule())
+                    .padding(.top, 8)
+                    .transition(.move(edge: .top).combined(with: .opacity))
+
+                case .detour:
+                    // Following detour — orange banner with "on your way back" message
+                    HStack(spacing: 8) {
+                        Image(systemName: "arrow.uturn.right.circle.fill")
+                            .foregroundStyle(.white)
+                        Text("Back to route")
+                            .font(.subheadline.weight(.bold))
+                            .foregroundStyle(.white)
+                        Spacer()
+                        Button {
+                            guard let coord = locationManager.currentCoordinate else { return }
+                            navModel.manualReroute(from: coord)
+                        } label: {
+                            Text("Try again")
+                                .font(.caption.weight(.bold))
+                                .padding(.horizontal, 10).padding(.vertical, 5)
+                                .background(Color.white.opacity(0.25))
+                                .clipShape(Capsule())
+                                .foregroundStyle(.white)
+                        }
+                    }
+                    .padding(.horizontal, 14).padding(.vertical, 10)
+                    .background(Color.orange)
+                    .clipShape(RoundedRectangle(cornerRadius: 14))
+                    .padding(.horizontal, 12).padding(.top, 8)
+                    .transition(.move(edge: .top).combined(with: .opacity))
+
+                case .navigating where navModel.showNoProgressPrompt:
+                    // No progress for 90s — prompt reroute
+                    HStack(spacing: 10) {
+                        Image(systemName: "questionmark.circle.fill").foregroundStyle(.white)
+                        Text("Looks like you went a different way")
+                            .font(.subheadline.weight(.semibold)).foregroundStyle(.white)
                         Spacer()
                         Button {
                             guard let coord = locationManager.currentCoordinate else { return }
@@ -144,42 +187,14 @@ struct RouteNavigationView: View {
                                 .foregroundStyle(.white)
                         }
                     }
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 10)
+                    .padding(.horizontal, 14).padding(.vertical, 10)
                     .background(Color.orange)
                     .clipShape(RoundedRectangle(cornerRadius: 14))
-                    .padding(.horizontal, 12)
-                    .padding(.top, 8)
+                    .padding(.horizontal, 12).padding(.top, 8)
                     .transition(.move(edge: .top).combined(with: .opacity))
-                }
 
-                // Off-route / Recalculating banner
-                if navModel.isRerouting {
-                    HStack(spacing: 8) {
-                        ProgressView().tint(.white).controlSize(.small)
-                        Text("Recalculating…")
-                            .font(.subheadline.weight(.semibold))
-                            .foregroundStyle(.white)
-                    }
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 10)
-                    .background(Color.orange)
-                    .clipShape(Capsule())
-                    .padding(.top, 8)
-                    .transition(.move(edge: .top).combined(with: .opacity))
-                } else if navModel.isOffRoute {
-                    HStack(spacing: 6) {
-                        Image(systemName: "exclamationmark.triangle.fill")
-                        Text("Off route — returning you to path")
-                            .font(.subheadline.weight(.semibold))
-                    }
-                    .foregroundStyle(.white)
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 10)
-                    .background(Color.red.opacity(0.85))
-                    .clipShape(Capsule())
-                    .padding(.top, 8)
-                    .transition(.move(edge: .top).combined(with: .opacity))
+                default:
+                    EmptyView()
                 }
 
                 Spacer()
@@ -295,13 +310,6 @@ struct RouteNavigationView: View {
             didFinish = true
             endWalk()
         }
-        .onChange(of: navModel.isOffRoute) { offRoute in
-            guard offRoute, !isDemoMode else { return }
-            guard let coord = locationManager.currentCoordinate else { return }
-            withAnimation(.easeInOut(duration: 0.3)) {
-                navModel.reroute(from: coord)
-            }
-        }
         // ── Sheets ──
         .sheet(isPresented: $showCamera) {
             NavImagePicker { img in
@@ -386,6 +394,7 @@ struct RouteMapViewRepresentable: UIViewRepresentable {
     var showsNumberedPins: Bool = false
     var fitToRoute: Bool = false
     var addedFoodSpots: [Landmark] = []    // user-added café/restaurant pins (teal)
+    var detourPolyline: [CLLocationCoordinate2D] = []   // orange dashed overlay during reroute
 
     private let logger = Logger(subsystem: "com.walkingroutes", category: "RouteMapView")
 
@@ -446,6 +455,9 @@ struct RouteMapViewRepresentable: UIViewRepresentable {
         // Food spot pins — always diffed independently of route changes
         context.coordinator.updateFoodSpotPins(addedFoodSpots, on: mapView)
 
+        // Detour overlay — orange dashed path back to planned route
+        context.coordinator.updateDetourOverlay(detourPolyline, on: mapView)
+
         // User location puck (custom blue dot + heading arrow — avoids MKCoreLocationProvider conflict)
         context.coordinator.updateUserPuck(coordinate: userCoordinate, heading: userHeading, on: mapView)
 
@@ -477,6 +489,9 @@ struct RouteMapViewRepresentable: UIViewRepresentable {
         // Track added food spot IDs so we can diff and update teal pins independently of route changes
         private var drawnFoodSpotIDs: Set<UUID> = []
 
+        // Detour polyline overlay (orange dashed) — managed independently of route
+        var drawnDetourPolyline: MKPolyline?
+
         init(routeColor: RouteColor, fitToRoute: Bool) {
             self.routeColor = routeColor
             self.fitToRoute = fitToRoute
@@ -484,6 +499,19 @@ struct RouteMapViewRepresentable: UIViewRepresentable {
 
         func hasRouteChanged(to id: UUID) -> Bool { drawnRouteId != id }
         func markRouteDrawn(_ id: UUID)           { drawnRouteId = id }
+
+        /// Add/replace/remove the orange dashed detour overlay.
+        func updateDetourOverlay(_ coords: [CLLocationCoordinate2D], on mapView: MKMapView) {
+            if let old = drawnDetourPolyline {
+                mapView.removeOverlay(old)
+                drawnDetourPolyline = nil
+            }
+            guard coords.count >= 2 else { return }
+            let poly = MKPolyline(coordinates: coords, count: coords.count)
+            mapView.addOverlay(poly, level: .aboveRoads)
+            drawnDetourPolyline = poly
+        }
+
         func resetFoodSpotIDs(on mapView: MKMapView? = nil) {
             if let mapView {
                 let stale = mapView.annotations.compactMap { $0 as? FoodSpotAnnotation }
@@ -567,6 +595,18 @@ struct RouteMapViewRepresentable: UIViewRepresentable {
 
         func mapView(_ mapView: MKMapView, rendererFor overlay: MKOverlay) -> MKOverlayRenderer {
             guard let polyline = overlay as? MKPolyline else { return MKOverlayRenderer(overlay: overlay) }
+
+            // Detour overlay — orange dashed line on top of planned route
+            if polyline === drawnDetourPolyline {
+                let r = MKPolylineRenderer(polyline: polyline)
+                r.strokeColor = UIColor.systemOrange
+                r.lineWidth   = 6
+                r.lineDashPattern = [8, 5]
+                r.lineCap     = .round
+                return r
+            }
+
+            // Planned route polyline
             let r = MKPolylineRenderer(polyline: polyline)
             r.strokeColor = routeColor.uiColor
             r.lineWidth   = 5

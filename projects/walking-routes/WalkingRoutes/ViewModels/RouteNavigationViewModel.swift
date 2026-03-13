@@ -3,38 +3,71 @@ import CoreLocation
 import Combine
 import UIKit
 
+// MARK: - Navigation Phase
+
+enum NavigationPhase: Equatable {
+    case loading        // steps not yet loaded
+    case navigating     // following original planned route
+    case rerouting      // async reroute in flight (spinner)
+    case detour         // following a detour back to the planned route
+    case arrived
+}
+
+// MARK: - ViewModel
+
 @MainActor
 final class RouteNavigationViewModel: ObservableObject {
+
+    // MARK: Published state
+
     @Published private(set) var steps: [NavigationStep] = []
     @Published private(set) var currentStepIndex: Int = 0
     @Published private(set) var distanceToNextManeuverMeters: CLLocationDistance?
 
     @Published private(set) var isDemoMode: Bool = false
 
-    @Published var isOffRoute: Bool = false
-    @Published var offRouteDistanceMeters: CLLocationDistance?
-    @Published var isRerouting: Bool = false
+    /// Current navigation phase — drives all UI states (replaces isOffRoute / isRerouting / showReroutePrompt)
+    @Published private(set) var phase: NavigationPhase = .loading
+
+    /// Detour polyline to draw on the map (orange dashed overlay). Non-empty only in .detour phase.
+    @Published private(set) var detourPolyline: [CLLocationCoordinate2D] = []
+
+    /// Instruction to show during a detour. Empty outside .detour phase.
+    @Published private(set) var detourInstruction: String = ""
+
+    // MARK: Private
 
     private let route: Route
-    private let offRouteThresholdMeters: CLLocationDistance = 30   // dense city streets — tight threshold
-    private let offRouteHoldSeconds: TimeInterval = 3
     private let stepAdvanceThresholdMeters: CLLocationDistance = 25
 
-    // No-progress detection: prompt reroute if no step advances for this long
-    private let noProgressTimeoutSeconds: TimeInterval = 90
-    @Published var showReroutePrompt: Bool = false
-    private var lastStepAdvanceTime: Date = Date()
-    private let rerouteCooldownSeconds: TimeInterval = 60
-
+    // Off-route detection thresholds
+    private let offRouteThresholdMeters: CLLocationDistance = 50   // raised from 30 — reduces false positives in dense streets
+    private let offRouteHoldSeconds: TimeInterval = 5              // raised from 3
     private var offRouteSince: Date?
+
+    // Reroute cooldown — prevents hammering MKDirections
+    private let rerouteCooldownSeconds: TimeInterval = 30
     private var lastRerouteAt: Date?
 
-    private var demoAdvanceTask: Task<Void, Never>?
+    // Detour state
+    private var detourSteps: [NavigationStep] = []
+    private var detourStepIndex: Int = 0
+    private var resumeStepIndex: Int = 0                           // original step to resume at after detour
+    private var reconnectionCoordinate: CLLocationCoordinate2D?
 
-    // Direction detection — checked once after user walks ~50m from start
+    // No-progress detection
+    private let noProgressTimeoutSeconds: TimeInterval = 90
+    private var lastStepAdvanceTime: Date = Date()
+    @Published var showNoProgressPrompt: Bool = false
+
+    // Direction detection
     private var directionChecked = false
     private var lastKnownCoord: CLLocationCoordinate2D?
     private var distanceTraveled: CLLocationDistance = 0
+
+    private var demoAdvanceTask: Task<Void, Never>?
+
+    // MARK: Init
 
     init(route: Route) {
         self.route = route
@@ -43,6 +76,8 @@ final class RouteNavigationViewModel: ObservableObject {
     deinit {
         demoAdvanceTask?.cancel()
     }
+
+    // MARK: - Computed
 
     var progressText: String {
         let total = max(steps.count, 1)
@@ -55,36 +90,46 @@ final class RouteNavigationViewModel: ObservableObject {
     }
 
     var currentInstruction: String {
-        guard steps.indices.contains(currentStepIndex) else { return "Starting…" }
-        return steps[currentStepIndex].instruction
+        switch phase {
+        case .detour:
+            return detourInstruction.isEmpty ? "Follow the route back" : detourInstruction
+        default:
+            guard steps.indices.contains(currentStepIndex) else { return "Starting…" }
+            return steps[currentStepIndex].instruction
+        }
     }
 
     var nextManeuverCoordinate: CLLocationCoordinate2D? {
-        guard steps.indices.contains(currentStepIndex) else { return nil }
-        return steps[currentStepIndex].coordinate
+        switch phase {
+        case .detour:
+            guard detourSteps.indices.contains(detourStepIndex) else { return reconnectionCoordinate }
+            return detourSteps[detourStepIndex].coordinate
+        default:
+            guard steps.indices.contains(currentStepIndex) else { return nil }
+            return steps[currentStepIndex].coordinate
+        }
     }
+
+    // MARK: - Load steps
 
     func loadStepsIfNeeded() {
         guard steps.isEmpty else { return }
 
-        // Use steps already embedded in the route (captured during generation) — avoids
-        // burning MKDirections quota on navigation when we already have all the steps we need.
         if let persisted = route.navigationSteps, !persisted.isEmpty {
             steps = persisted
             currentStepIndex = 0
+            phase = .navigating
             if isDemoMode { startDemoAutoAdvanceIfPossible() }
             return
         }
 
-        // Fallback: compute via NavigationDirectionsService (only if route has no persisted steps).
-        // Race against a 3-second timeout so the UI never hangs forever if the service stalls.
         Task {
             do {
                 let computed = try await withThrowingTaskGroup(of: [NavigationStep].self) { group in
                     group.addTask { try await NavigationDirectionsService.shared.steps(for: self.route) }
                     group.addTask {
                         try await Task.sleep(nanoseconds: 3_000_000_000)
-                        throw CancellationError()   // timeout — fall through to catch
+                        throw CancellationError()
                     }
                     defer { group.cancelAll() }
                     guard let result = try await group.next() else { throw CancellationError() }
@@ -92,69 +137,232 @@ final class RouteNavigationViewModel: ObservableObject {
                 }
                 self.steps = computed
                 self.currentStepIndex = 0
-                if self.isDemoMode {
-                    self.startDemoAutoAdvanceIfPossible()
-                }
+                self.phase = .navigating
+                if self.isDemoMode { self.startDemoAutoAdvanceIfPossible() }
             } catch {
-                // NavigationDirectionsService failed or timed out — fall back to persisted steps.
                 let fallback = route.navigationSteps ?? []
                 self.steps = fallback
-                if self.isDemoMode && !fallback.isEmpty {
-                    self.startDemoAutoAdvanceIfPossible()
-                }
+                self.phase = fallback.isEmpty ? .loading : .navigating
+                if self.isDemoMode && !fallback.isEmpty { self.startDemoAutoAdvanceIfPossible() }
             }
         }
     }
 
+    // MARK: - Location updates
+
     func handleLocationUpdate(_ user: CLLocationCoordinate2D) {
         guard !isDemoMode else { return }
+
         checkWalkingDirection(user: user)
         updateDistanceToNext(user: user)
-        advanceStepIfNeeded(user: user)
-        updateOffRoute(user: user)
-        checkNoProgress()
-    }
 
-    private func checkNoProgress() {
-        guard !isAtLastStep, !isRerouting else { return }
-        let stuck = Date().timeIntervalSince(lastStepAdvanceTime) >= noProgressTimeoutSeconds
-        if stuck && !showReroutePrompt {
-            showReroutePrompt = true
+        switch phase {
+        case .navigating:
+            advanceStepIfNeeded(user: user)
+            detectOffRoute(user: user)
+            checkNoProgress()
+
+        case .detour:
+            advanceDetourStepIfNeeded(user: user)
+            checkDetourComplete(user: user)
+
+        default:
+            break
         }
     }
 
-    /// Call this any time the user manually requests a reroute.
+    // MARK: - Rerouting (public)
+
+    /// Trigger reroute manually (e.g. from the ↺ button or no-progress prompt).
     func manualReroute(from user: CLLocationCoordinate2D) {
-        showReroutePrompt = false
+        showNoProgressPrompt = false
         lastStepAdvanceTime = Date()
-        reroute(from: user)
+        startReroute(from: user)
     }
 
-    /// After ~80m of walking, check if user is heading toward the END of the route instead of the start.
-    /// If so, reverse the step order so they can walk the loop in their chosen direction.
+    func dismissNoProgressPrompt() {
+        showNoProgressPrompt = false
+        lastStepAdvanceTime = Date()
+    }
+
+    // MARK: - Rerouting (private core)
+
+    /// Apple Maps style: find nearest remaining step, route to it, show detour overlay.
+    private func startReroute(from user: CLLocationCoordinate2D) {
+        guard phase == .navigating || phase == .detour else { return }
+        guard canRerouteNow() else { return }
+
+        lastRerouteAt = Date()
+        phase = .rerouting
+        offRouteSince = nil
+        detourPolyline = []
+        detourSteps = []
+
+        Task {
+            do {
+                // Step 1: find nearest remaining step to reconnect to
+                let (target, resumeIdx) = nearestRemainingStep(to: user)
+
+                // Step 2: get walking directions from current position → reconnection point
+                let result = try await NavigationDirectionsService.shared.detourRoute(from: user, to: target.coordinate)
+
+                // Step 3: apply detour
+                self.detourSteps = result.steps
+                self.detourStepIndex = 0
+                self.detourPolyline = result.polylineCoordinates
+                self.detourInstruction = result.steps.first?.instruction ?? "Head back to your route"
+                self.resumeStepIndex = resumeIdx
+                self.reconnectionCoordinate = target.coordinate
+                self.phase = .detour
+
+                UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+
+            } catch {
+                // Reroute failed — go back to navigating so user can try again
+                self.phase = .navigating
+                self.detourPolyline = []
+            }
+        }
+    }
+
+    /// Find the nearest step in the remaining route (from currentStepIndex onwards).
+    /// Returns the step and its index so we know where to resume the original route.
+    private func nearestRemainingStep(to user: CLLocationCoordinate2D) -> (NavigationStep, Int) {
+        let userLoc = CLLocation(latitude: user.latitude, longitude: user.longitude)
+
+        var bestDist = CLLocationDistance.greatestFiniteMagnitude
+        var bestStep = steps[max(0, min(currentStepIndex, steps.count - 1))]
+        var bestIdx  = max(0, min(currentStepIndex, steps.count - 1))
+
+        for i in currentStepIndex..<steps.count {
+            let step = steps[i]
+            let dist = userLoc.distance(from: CLLocation(latitude: step.latitude, longitude: step.longitude))
+            if dist < bestDist {
+                bestDist = dist
+                bestStep = step
+                bestIdx  = i
+            }
+        }
+        return (bestStep, bestIdx)
+    }
+
+    // MARK: - Detour tracking
+
+    private func advanceDetourStepIfNeeded(user: CLLocationCoordinate2D) {
+        guard detourSteps.indices.contains(detourStepIndex) else { return }
+        let target = detourSteps[detourStepIndex].coordinate
+        let dist = CLLocation(latitude: user.latitude, longitude: user.longitude)
+            .distance(from: CLLocation(latitude: target.latitude, longitude: target.longitude))
+
+        guard dist <= stepAdvanceThresholdMeters else { return }
+        guard detourStepIndex < detourSteps.count - 1 else { return }
+
+        detourStepIndex += 1
+        detourInstruction = detourSteps[detourStepIndex].instruction
+        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+    }
+
+    private func checkDetourComplete(user: CLLocationCoordinate2D) {
+        guard let reconnect = reconnectionCoordinate else { return }
+        let dist = CLLocation(latitude: user.latitude, longitude: user.longitude)
+            .distance(from: CLLocation(latitude: reconnect.latitude, longitude: reconnect.longitude))
+
+        guard dist <= stepAdvanceThresholdMeters else { return }
+
+        // Arrived back on route — resume original navigation
+        currentStepIndex = min(resumeStepIndex, steps.count - 1)
+        lastStepAdvanceTime = Date()
+        detourSteps = []
+        detourPolyline = []
+        detourInstruction = ""
+        reconnectionCoordinate = nil
+        offRouteSince = nil
+        phase = .navigating
+
+        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+    }
+
+    // MARK: - Off-route detection
+
+    private func detectOffRoute(user: CLLocationCoordinate2D) {
+        guard phase == .navigating else { return }
+
+        let poly = route.pathCoordinates
+        guard let dist = PolylineMath.distanceMeters(from: user, toPolyline: poly) else {
+            offRouteSince = nil
+            return
+        }
+
+        if dist > offRouteThresholdMeters {
+            if offRouteSince == nil { offRouteSince = Date() }
+            let held = Date().timeIntervalSince(offRouteSince!) >= offRouteHoldSeconds
+            if held && canRerouteNow() {
+                // Auto-reroute
+                offRouteSince = nil
+                startReroute(from: user)
+            }
+        } else {
+            offRouteSince = nil
+        }
+    }
+
+    // MARK: - No-progress detection
+
+    private func checkNoProgress() {
+        guard phase == .navigating, !isAtLastStep else { return }
+        let stuck = Date().timeIntervalSince(lastStepAdvanceTime) >= noProgressTimeoutSeconds
+        if stuck && !showNoProgressPrompt {
+            showNoProgressPrompt = true
+        }
+    }
+
+    // MARK: - Step advance (normal navigation)
+
+    private func advanceStepIfNeeded(user: CLLocationCoordinate2D) {
+        guard steps.indices.contains(currentStepIndex) else { return }
+        guard let target = nextManeuverCoordinate else { return }
+
+        let dist = CLLocation(latitude: user.latitude, longitude: user.longitude)
+            .distance(from: CLLocation(latitude: target.latitude, longitude: target.longitude))
+
+        guard dist <= stepAdvanceThresholdMeters else { return }
+        guard currentStepIndex < steps.count - 1 else { return }
+
+        currentStepIndex += 1
+        lastStepAdvanceTime = Date()
+        showNoProgressPrompt = false
+        offRouteSince = nil
+        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+    }
+
+    private func updateDistanceToNext(user: CLLocationCoordinate2D) {
+        guard let target = nextManeuverCoordinate else {
+            distanceToNextManeuverMeters = nil
+            return
+        }
+        distanceToNextManeuverMeters = CLLocation(latitude: user.latitude, longitude: user.longitude)
+            .distance(from: CLLocation(latitude: target.latitude, longitude: target.longitude))
+    }
+
+    // MARK: - Walking direction detection
+
     private func checkWalkingDirection(user: CLLocationCoordinate2D) {
         guard !directionChecked, steps.count > 3 else { return }
 
-        // Accumulate distance from previous position
         if let last = lastKnownCoord {
             distanceTraveled += CLLocation(latitude: last.latitude, longitude: last.longitude)
                 .distance(from: CLLocation(latitude: user.latitude, longitude: user.longitude))
         }
         lastKnownCoord = user
 
-        guard distanceTraveled >= 50 else { return }   // wait until ~50m walked
+        guard distanceTraveled >= 50 else { return }
         directionChecked = true
 
-        // Compare distance to step 1 (forward direction) vs last step (reverse direction)
         guard let firstStep = steps.first, let lastStep = steps.last else { return }
-        let firstCoord = firstStep.coordinate
-        let lastCoord  = lastStep.coordinate
-
         let userLoc     = CLLocation(latitude: user.latitude, longitude: user.longitude)
-        let distToFirst = userLoc.distance(from: CLLocation(latitude: firstCoord.latitude, longitude: firstCoord.longitude))
-        let distToLast  = userLoc.distance(from: CLLocation(latitude: lastCoord.latitude,  longitude: lastCoord.longitude))
+        let distToFirst = userLoc.distance(from: CLLocation(latitude: firstStep.coordinate.latitude, longitude: firstStep.coordinate.longitude))
+        let distToLast  = userLoc.distance(from: CLLocation(latitude: lastStep.coordinate.latitude, longitude: lastStep.coordinate.longitude))
 
-        // If the user is meaningfully closer to the LAST step, they're walking in reverse
         if distToLast < distToFirst * 0.6 {
             steps = steps.reversed()
             currentStepIndex = 0
@@ -162,13 +370,19 @@ final class RouteNavigationViewModel: ObservableObject {
         }
     }
 
+    // MARK: - Cooldown check
+
+    private func canRerouteNow() -> Bool {
+        guard let lastRerouteAt else { return true }
+        return Date().timeIntervalSince(lastRerouteAt) >= rerouteCooldownSeconds
+    }
+
+    // MARK: - Demo mode
+
     func enableDemoMode() {
         isDemoMode = true
         distanceToNextManeuverMeters = nil
-        isOffRoute = false
-        offRouteDistanceMeters = nil
         offRouteSince = nil
-
         startDemoAutoAdvanceIfPossible()
     }
 
@@ -179,7 +393,10 @@ final class RouteNavigationViewModel: ObservableObject {
     }
 
     func advanceStepManually() {
-        advanceStepWithoutLocation()
+        guard steps.indices.contains(currentStepIndex) else { return }
+        guard currentStepIndex < steps.count - 1 else { return }
+        currentStepIndex += 1
+        UIImpactFeedbackGenerator(style: .light).impactOccurred()
     }
 
     func startDemoAutoAdvanceIfPossible() {
@@ -193,101 +410,8 @@ final class RouteNavigationViewModel: ObservableObject {
                 let seconds = Double.random(in: 5.0...8.0)
                 try? await Task.sleep(nanoseconds: UInt64(seconds * 1_000_000_000))
                 if Task.isCancelled { return }
-                self.advanceStepWithoutLocation()
+                self.advanceStepManually()
             }
-        }
-    }
-
-    func canRerouteNow() -> Bool {
-        guard let lastRerouteAt else { return true }
-        return Date().timeIntervalSince(lastRerouteAt) >= rerouteCooldownSeconds
-    }
-
-    func reroute(from user: CLLocationCoordinate2D) {
-        guard canRerouteNow() else { return }
-        guard let target = nextManeuverCoordinate else { return }
-
-        lastRerouteAt = Date()
-        isRerouting = true
-
-        Task {
-            do {
-                let mini = try await NavigationDirectionsService.shared.reroute(from: user, to: target)
-
-                // Prepend mini-route steps, then continue with remaining original steps.
-                let remaining = steps.dropFirst(min(currentStepIndex, steps.count))
-                let merged = Array(mini + remaining)
-
-                await MainActor.run {
-                    self.steps = merged
-                    self.currentStepIndex = 0
-                    self.isOffRoute = false
-                    self.offRouteSince = nil
-                    self.isRerouting = false
-                }
-
-                UIImpactFeedbackGenerator(style: .medium).impactOccurred()
-            } catch {
-                // Reroute failed — clear rerouting state and keep current steps.
-                await MainActor.run { self.isRerouting = false }
-            }
-        }
-    }
-
-    // MARK: - Private
-
-    private func updateDistanceToNext(user: CLLocationCoordinate2D) {
-        guard let target = nextManeuverCoordinate else {
-            distanceToNextManeuverMeters = nil
-            return
-        }
-        let meters = CLLocation(latitude: user.latitude, longitude: user.longitude)
-            .distance(from: CLLocation(latitude: target.latitude, longitude: target.longitude))
-        distanceToNextManeuverMeters = meters
-    }
-
-    private func advanceStepIfNeeded(user: CLLocationCoordinate2D) {
-        guard steps.indices.contains(currentStepIndex) else { return }
-        guard let target = nextManeuverCoordinate else { return }
-
-        let meters = CLLocation(latitude: user.latitude, longitude: user.longitude)
-            .distance(from: CLLocation(latitude: target.latitude, longitude: target.longitude))
-
-        guard meters <= stepAdvanceThresholdMeters else { return }
-        guard currentStepIndex < steps.count - 1 else { return }
-
-        currentStepIndex += 1
-        lastStepAdvanceTime = Date()
-        showReroutePrompt = false
-        UIImpactFeedbackGenerator(style: .light).impactOccurred()
-    }
-
-    private func advanceStepWithoutLocation() {
-        guard steps.indices.contains(currentStepIndex) else { return }
-        guard currentStepIndex < steps.count - 1 else { return }
-
-        currentStepIndex += 1
-        UIImpactFeedbackGenerator(style: .light).impactOccurred()
-    }
-
-    private func updateOffRoute(user: CLLocationCoordinate2D) {
-        let poly = route.pathCoordinates
-        guard let dist = PolylineMath.distanceMeters(from: user, toPolyline: poly) else {
-            isOffRoute = false
-            offRouteSince = nil
-            offRouteDistanceMeters = nil
-            return
-        }
-
-        offRouteDistanceMeters = dist
-
-        if dist > offRouteThresholdMeters {
-            if offRouteSince == nil { offRouteSince = Date() }
-            let held = Date().timeIntervalSince(offRouteSince ?? Date()) >= offRouteHoldSeconds
-            isOffRoute = held
-        } else {
-            isOffRoute = false
-            offRouteSince = nil
         }
     }
 }
