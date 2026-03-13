@@ -92,6 +92,7 @@ struct LandmarkDetailView: View {
 
     @State private var showSafari = false
     @State private var safariURL: URL?
+    @State private var addedToWalk = false
 
     private let logger = Logger(subsystem: "com.walkingroutes", category: "LandmarkDetailView")
 
@@ -354,14 +355,16 @@ struct LandmarkDetailView: View {
                 }
             }
 
-            // Get Directions
+            // Visit This Spot
             ActionButton(
-                title: "Get Directions",
-                icon: "location.fill",
+                title: addedToWalk ? "Added to Walk ✓" : "Visit This Spot",
+                icon: addedToWalk ? "checkmark.circle.fill" : "mappin.circle.fill",
                 style: .tertiary
             ) {
+                guard !addedToWalk else { return }
+                addedToWalk = true
+                UIImpactFeedbackGenerator(style: .medium).impactOccurred()
                 AnalyticsService.shared.log(.directionsRequested(landmark: landmark.name))
-                openInMaps()
             }
         }
     }
@@ -374,14 +377,7 @@ struct LandmarkDetailView: View {
         showSafari = true
     }
 
-    private func openInMaps() {
-        let coordinate = landmark.location.clLocation
-        let mapItem = MKMapItem(placemark: MKPlacemark(coordinate: coordinate))
-        mapItem.name = landmark.name
-        mapItem.openInMaps(launchOptions: [
-            MKLaunchOptionsDirectionsModeKey: MKLaunchOptionsDirectionsModeWalking
-        ])
-    }
+
 }
 
 // MARK: - Supporting Views
