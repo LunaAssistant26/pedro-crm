@@ -14,6 +14,25 @@ struct GooglePlaceDetail {
     let website: URL?
     let priceLevel: Int?         // 0–4
     let photoReference: String?  // first photo ref
+    let types: [String]          // e.g. ["restaurant","food","establishment"]
+
+    /// True if Google confirmed this is a food/drink establishment.
+    var isFoodEstablishment: Bool {
+        let foodTypes: Set<String> = ["restaurant", "cafe", "bakery", "bar",
+                                      "food", "meal_takeaway", "meal_delivery",
+                                      "night_club", "coffee_shop"]
+        return types.contains { foodTypes.contains($0) }
+    }
+
+    /// True if Google confirmed this is a cultural/tourist place.
+    var isCulturalPlace: Bool {
+        let culturalTypes: Set<String> = ["tourist_attraction", "museum", "church",
+                                          "place_of_worship", "art_gallery", "library",
+                                          "park", "stadium", "amusement_park",
+                                          "natural_feature", "university", "cemetery",
+                                          "historic_site", "monument"]
+        return types.contains { culturalTypes.contains($0) }
+    }
 }
 
 // MARK: - Service
@@ -96,7 +115,7 @@ actor GooglePlacesService {
         var components = URLComponents(string: "https://maps.googleapis.com/maps/api/place/details/json")!
         components.queryItems = [
             .init(name: "place_id", value: placeID),
-            .init(name: "fields", value: "place_id,name,rating,user_ratings_total,opening_hours,formatted_phone_number,website,price_level,photos"),
+            .init(name: "fields", value: "place_id,name,rating,user_ratings_total,opening_hours,formatted_phone_number,website,price_level,photos,types"),
             .init(name: "key", value: apiKey),
         ]
         guard let url = components.url else { return nil }
@@ -124,6 +143,7 @@ actor GooglePlacesService {
             let photoRef = photos?.first?["photo_reference"] as? String
 
             let name = result["name"] as? String ?? ""
+            let types = result["types"] as? [String] ?? []
 
             return GooglePlaceDetail(
                 placeID: placeID,
@@ -135,7 +155,8 @@ actor GooglePlacesService {
                 phoneNumber: phone,
                 website: website,
                 priceLevel: priceLevel,
-                photoReference: photoRef
+                photoReference: photoRef,
+                types: types
             )
         } catch {
             return nil

@@ -247,69 +247,94 @@ struct LandmarkDetailView: View {
     }
 
     private var descriptionSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("About")
-                .font(.headline)
+        // Generic fallback descriptions from Apple MapKit — not worth showing to the user
+        let genericDescriptions: Set<String> = [
+            "Restaurant — fuel up here.",
+            "Café — perfect for a coffee break.",
+            "Bakery — great for a quick snack.",
+            "Park — a great spot to rest or explore.",
+            "Museum worth visiting along your route.",
+            "Point of interest along your route.",
+            "Notable stop along your route.",
+            "Landmark worth a look on your walk.",
+            "Bar or nightlife venue.",
+            "Hotel or accommodation.",
+            "Notable landmark on your walk.",
+            "Castle or historic fortification.",
+        ]
+        let displayDescription = landmark.detailedDescription
+            ?? (genericDescriptions.contains(landmark.description) ? nil : landmark.description)
 
-            if let detailed = landmark.detailedDescription {
-                Text(detailed)
-                    .font(.body)
-                    .foregroundStyle(.primary)
-                    .lineSpacing(4)
-            } else {
-                Text(landmark.description)
-                    .font(.body)
-                    .foregroundStyle(.primary)
-                    .lineSpacing(4)
+        return Group {
+            if let text = displayDescription {
+                VStack(alignment: .leading, spacing: 12) {
+                    Text("About")
+                        .font(.headline)
+                    Text(text)
+                        .font(.body)
+                        .foregroundStyle(.primary)
+                        .lineSpacing(4)
+                }
             }
         }
     }
 
+    /// True if there's at least one practical info field to display.
+    private var hasPracticalInfo: Bool {
+        landmark.openingHours != nil ||
+        landmark.admissionFee != nil ||
+        landmark.phoneNumber != nil ||
+        landmark.accessibilityInfo != nil
+    }
+
+    @ViewBuilder
     private var practicalInfoSection: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            Text("Practical Information")
-                .font(.headline)
+        if hasPracticalInfo {
+            VStack(alignment: .leading, spacing: 16) {
+                Text("Practical Information")
+                    .font(.headline)
 
-            VStack(alignment: .leading, spacing: 12) {
-                if let hours = landmark.openingHours {
-                    InfoRow(
-                        icon: "clock.fill",
-                        iconColor: .blue,
-                        title: "Opening Hours",
-                        value: hours
-                    )
-                }
+                VStack(alignment: .leading, spacing: 12) {
+                    if let hours = landmark.openingHours {
+                        InfoRow(
+                            icon: "clock.fill",
+                            iconColor: .blue,
+                            title: "Opening Hours",
+                            value: hours
+                        )
+                    }
 
-                if let fee = landmark.admissionFee {
-                    InfoRow(
-                        icon: "eurosign.circle.fill",
-                        iconColor: .green,
-                        title: "Admission",
-                        value: fee
-                    )
-                }
+                    if let fee = landmark.admissionFee {
+                        InfoRow(
+                            icon: "eurosign.circle.fill",
+                            iconColor: .green,
+                            title: "Admission",
+                            value: fee
+                        )
+                    }
 
-                if let phone = landmark.phoneNumber {
-                    InfoRow(
-                        icon: "phone.fill",
-                        iconColor: .indigo,
-                        title: "Phone",
-                        value: phone
-                    )
-                }
+                    if let phone = landmark.phoneNumber {
+                        InfoRow(
+                            icon: "phone.fill",
+                            iconColor: .indigo,
+                            title: "Phone",
+                            value: phone
+                        )
+                    }
 
-                if let accessibility = landmark.accessibilityInfo {
-                    InfoRow(
-                        icon: "accessibility.fill",
-                        iconColor: .orange,
-                        title: "Accessibility",
-                        value: accessibility
-                    )
+                    if let accessibility = landmark.accessibilityInfo {
+                        InfoRow(
+                            icon: "accessibility.fill",
+                            iconColor: .orange,
+                            title: "Accessibility",
+                            value: accessibility
+                        )
+                    }
                 }
+                .padding(16)
+                .background(Color(.systemBackground))
+                .clipShape(RoundedRectangle(cornerRadius: 16))
             }
-            .padding(16)
-            .background(Color(.systemBackground))
-            .clipShape(RoundedRectangle(cornerRadius: 16))
         }
     }
 

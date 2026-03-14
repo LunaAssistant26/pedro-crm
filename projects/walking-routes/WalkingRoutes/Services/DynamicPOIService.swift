@@ -63,28 +63,37 @@ actor DynamicPOIService {
             let nearby = filterAndSort(candidates, polyline: polyline, maxDist: maxDistanceMeters, limit: limit * 6)
 
             // Enrich every POI with Google Places.
-            // Rule: only show POIs that have a Google rating.
-            //   - Food (restaurant/café/bakery): require ≥ 4.4
-            //   - Cultural/landmark:             require ≥ 4.0
-            //   - No Google match or below threshold → drop silently
+            // Hard rules — a POI is only shown when ALL of these pass:
+            //   1. Has a Google Places match
+            //   2. Rating ≥ threshold (food: 4.4, cultural: 4.0)
+            //   3. Google types confirm it's the right kind of place
+            //      – food spots: must have a food/restaurant type (blocks offices like GRUND Inc.)
+            //      – cultural: any place with sufficient reviews is fine
+            //   4. Minimum review count (food: 20+, cultural: 30+)
             var enriched: [Landmark] = []
             for landmark in nearby {
                 let isFood = landmark.isFoodSpot
                 let minRating: Double = isFood ? 4.4 : Self.minCulturalRating
+                let minReviews = isFood ? 20 : 30
                 let coord = CLLocationCoordinate2D(latitude: landmark.location.latitude,
                                                   longitude: landmark.location.longitude)
-                if let gDetail = await GooglePlacesService.shared.detail(
+                guard let gDetail = await GooglePlacesService.shared.detail(
                     name: landmark.name,
                     coordinate: coord,
                     minRating: minRating
-                ) {
-                    enriched.append(landmark.enriched(with: gDetail))
-                }
-                // Any POI without a Google rating is dropped (no exceptions)
+                ) else { continue }   // no match or below rating threshold
+
+                // Type validation: food spots must be confirmed as food establishments
+                if isFood && !gDetail.isFoodEstablishment { continue }
+
+                // Minimum reviews: filter out obscure/unverified places
+                if let total = gDetail.userRatingsTotal, total < minReviews { continue }
+
+                enriched.append(landmark.enriched(with: gDetail))
                 if enriched.count >= limit { break }
             }
 
-            // Fallback: if food filter left nothing, relax to 4.0 for food too
+            // Fallback: if food filter left nothing, relax rating to 4.0 (but still require food type + 20 reviews)
             let foodInEnriched = enriched.filter { $0.isFoodSpot }
             if foodInEnriched.isEmpty {
                 for landmark in nearby where landmark.isFoodSpot {
@@ -92,7 +101,8 @@ actor DynamicPOIService {
                                                       longitude: landmark.location.longitude)
                     if let gDetail = await GooglePlacesService.shared.detail(
                         name: landmark.name, coordinate: coord, minRating: 4.0
-                    ) {
+                    ), gDetail.isFoodEstablishment,
+                       (gDetail.userRatingsTotal ?? 0) >= 20 {
                         enriched.append(landmark.enriched(with: gDetail))
                         if enriched.count >= limit { break }
                     }
