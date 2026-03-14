@@ -24,13 +24,23 @@ struct GooglePlaceDetail {
         return types.contains { foodTypes.contains($0) }
     }
 
-    /// True if Google confirmed this is a cultural/tourist place.
+    /// True if Google confirmed this is a genuine tourist/cultural attraction worth highlighting.
+    /// Strictly allowlisted — driving schools, offices, shops, etc. are excluded.
     var isCulturalPlace: Bool {
-        let culturalTypes: Set<String> = ["tourist_attraction", "museum", "church",
-                                          "place_of_worship", "art_gallery", "library",
-                                          "park", "stadium", "amusement_park",
-                                          "natural_feature", "university", "cemetery",
-                                          "historic_site", "monument"]
+        let culturalTypes: Set<String> = [
+            "tourist_attraction",
+            "museum",
+            "church", "place_of_worship", "mosque", "synagogue", "hindu_temple",
+            "art_gallery",
+            "library",
+            "park", "national_park", "natural_feature",
+            "stadium", "amusement_park", "zoo", "aquarium",
+            "university",                // famous campuses (e.g. Leiden University)
+            "cemetery",                  // historic ones (e.g. Père Lachaise)
+            "castle",                    // European castles
+            "landmark",                  // Google's own landmark type
+            "monument",
+        ]
         return types.contains { culturalTypes.contains($0) }
     }
 }

@@ -83,8 +83,14 @@ actor DynamicPOIService {
                     minRating: minRating
                 ) else { continue }   // no match or below rating threshold
 
-                // Type validation: food spots must be confirmed as food establishments
-                if isFood && !gDetail.isFoodEstablishment { continue }
+                // Type validation — drop anything that isn't the right kind of place:
+                //   food spots  → must be a food/drink establishment
+                //   cultural    → must be a genuine tourist/cultural attraction
+                if isFood {
+                    if !gDetail.isFoodEstablishment { continue }
+                } else {
+                    if !gDetail.isCulturalPlace { continue }
+                }
 
                 // Minimum reviews: filter out obscure/unverified places
                 if let total = gDetail.userRatingsTotal, total < minReviews { continue }

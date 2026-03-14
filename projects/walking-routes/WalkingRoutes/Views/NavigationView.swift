@@ -432,8 +432,9 @@ struct RouteMapViewRepresentable: UIViewRepresentable {
             context.coordinator.markRouteDrawn(route.id)
 
             if showsNumberedPins {
-                // Cultural/historical landmarks → numbered orange pins
-                let cultural = route.landmarks.filter { !$0.isFoodSpot }
+                // Only rated cultural landmarks — same filter as the Highlights list in RouteDetailView
+                // (no rating = not a verified tourist attraction = no pin on map)
+                let cultural = route.landmarks.filter { !$0.isFoodSpot && $0.rating != nil }
                 for (i, lm) in cultural.enumerated() {
                     let a = NumberedPointAnnotation()
                     a.number = i + 1
